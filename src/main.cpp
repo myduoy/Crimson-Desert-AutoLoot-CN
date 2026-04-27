@@ -959,6 +959,10 @@ bool IsReadableMemory(uintptr_t address, size_t bytes, bool heap_only = false);
 bool IsItemCategoryAllowed(uint8_t category);
 bool IsItemBlocked(uint32_t key);
 
+bool IsReliableFilteredGroundItem(const ItemResolveResult& item) {
+  return item.resolved && item.key != 0 && item.text_match;
+}
+
 bool IsGroundLootType(uint32_t type) {
   return type == kGroundLootType || type == kGroundLootVariantType ||
          type == kGroundLootRelicType;
@@ -1806,14 +1810,13 @@ RecordInteraction(uint32_t type, uintptr_t target, uintptr_t candidate,
     if (filter_active) {
       item = ResolveGroundItemCached(type, target, candidate, context);
     }
-    const bool known_item = item.resolved;
+    const bool known_item =
+        filter_active ? IsReliableFilteredGroundItem(item) : item.resolved;
     const uint8_t category = known_item ? item.category : kCatUnknown;
     const bool blocked = known_item && IsItemBlocked(item.key);
     bool allowed = IsItemCategoryAllowed(category) && !blocked;
     bool confirmed = true;
-    if (filter_active && allowed && item.resolved && !item.text_match) {
-      confirmed = ConfirmAllowedGroundItem(type, target, candidate, item);
-    }
+    if (filter_active && item.resolved && !item.text_match) allowed = false;
     InterlockedExchange64(&g_last_ground_target, static_cast<LONG64>(target));
     InterlockedExchange64(&g_last_ground_candidate,
                           static_cast<LONG64>(candidate));
