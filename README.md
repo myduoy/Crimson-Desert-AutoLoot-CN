@@ -14,16 +14,13 @@ This is an unofficial community plugin. It does not include game files and is no
 - Hot-reloaded configuration when the INI file changes.
 - Lower-stutter filtering path: expensive ground-item text resolution runs on the plugin worker thread instead of the game hook callback.
 
-## v0.1.2 Fixes
+## v0.1.3 Fixes
 
-- Fixed human NPC corpse looting on current game builds.
-- Fixed corpse prompts that are reported by the game as ground interaction `type 1`.
-- Changed corpse interaction input from a short tap to a held interact key so search/loot corpse prompts complete reliably.
-- Added current-client corpse interaction candidates `38`, `39`, and `168`.
-- Added a safe fallback for ambiguous `type 1` corpse prompts without bypassing filters for confirmed ground items.
-- Improved filtering so unknown numeric object matches are not treated as real item IDs.
-- Added generic equipment prompt classification for faction-prefixed item names such as plate helmets, helmets, armor, gloves, boots, cloaks, shields, spears, swords, and bows.
-- Added regression tests for interaction type handling, corpse key hold behavior, and generic equipment category matching.
+- Fixed small animals such as geese and hedgehogs being caught by mistake.
+- Removed animal catch interaction IDs `38` and `39` from corpse looting.
+- Tightened ambiguous `type 1` corpse fallback so it only runs after a recent corpse/search prompt action is seen.
+- Kept human NPC corpse looting and generic equipment prompt filtering from `v0.1.2`.
+- Added regression coverage for animal/catch interaction safety guards.
 - Updated release binaries.
 
 ## Current Limitations

@@ -29,9 +29,9 @@ def test_corpse_types_include_original_and_rewrite_ids() -> None:
     assert match, "corpse interaction IDs should live in kCorpseLootTypes[]"
     values = {int(number) for number in re.findall(r"\b\d+\b", match.group(1))}
     assert 15 in values, "original AutoLoot corpse/gather type 15 must be handled"
-    assert 38 in values, "current-client human corpse candidate type 38 must be handled"
-    assert 39 in values, "current-client human corpse candidate type 39 must be handled"
     assert 168 in values, "rewrite-observed corpse type 168 must stay handled"
+    assert 38 not in values, "DeadAnimal_Catch must not be treated as corpse loot"
+    assert 39 not in values, "Animal_Catch must not be treated as corpse loot"
 
 
 def test_record_interaction_uses_corpse_classifier() -> None:
@@ -45,13 +45,17 @@ def test_prompt_action_fallback_is_guarded() -> None:
     assert "HasRecentCorpsePromptAction" in fallback
     assert "IsUnsafePromptActionFallbackType" in fallback
     safety = body_of("IsUnsafePromptActionFallbackType")
-    for interaction_type in (1, 4, 19, 24, 50, 160, 161, 266, 29, 34, 35, 36, 93):
+    for interaction_type in (
+        1, 4, 19, 24, 25, 26, 27, 29, 30, 31, 32, 33, 34, 35, 36,
+        37, 38, 39, 40, 41, 42, 50, 160, 161, 266, 93
+    ):
         assert f"case {interaction_type}:" in safety
 
 
 def test_type1_unknown_ground_can_fall_back_to_corpse() -> None:
     helper = body_of("ShouldFallbackGroundTypeToCorpse")
     assert "type != kGroundLootType" in helper
+    assert "HasRecentCorpsePromptAction(now)" in helper
     assert "!item.text_match" in helper
     assert "item.unique_keys > 1" in helper
     assert "IsReliableFilteredGroundItem" in helper

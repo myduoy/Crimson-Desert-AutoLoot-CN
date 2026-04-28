@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.1.3
+
+- Fixed small animals such as geese and hedgehogs being caught by mistake when corpse looting was enabled.
+- Removed animal catch interaction IDs `38` and `39` from the corpse-loot classifier.
+- Tightened the ambiguous `type 1` corpse fallback so it only runs after a recent corpse/search prompt action is seen.
+- Expanded unsafe prompt-action fallback guards for animal, critter, insect, gather, greeting, skinning, chest, and carry interaction types.
+- Updated interaction regression tests and release binaries.
+
 ## v0.1.2
 
 - Fixed human NPC corpse looting on current game builds where corpse prompts can be reported as ground interaction `type 1`.

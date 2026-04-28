@@ -43,7 +43,7 @@ constexpr size_t kPromptTextBPatchLen = 0x12;
 constexpr uint32_t kGroundLootType = 1;
 constexpr uint32_t kGroundLootVariantType = 4;
 constexpr uint32_t kGroundLootRelicType = 19;
-constexpr uint32_t kCorpseLootTypes[] = {15, 38, 39, 168};
+constexpr uint32_t kCorpseLootTypes[] = {15, 168};
 constexpr WORD kDefaultInteractKey = 'E';
 constexpr DWORD kGroundInteractTapMs = 55;
 constexpr DWORD kCorpseInteractHoldMs = 900;
@@ -978,6 +978,7 @@ bool IsGameForeground() {
 bool IsReadableMemory(uintptr_t address, size_t bytes, bool heap_only = false);
 bool IsItemCategoryAllowed(uint8_t category);
 bool IsItemBlocked(uint32_t key);
+bool HasRecentCorpsePromptAction(ULONGLONG now);
 
 bool IsReliableFilteredGroundItem(const ItemResolveResult& item) {
   return item.resolved && item.text_match &&
@@ -989,10 +990,11 @@ bool IsGroundLootType(uint32_t type) {
          type == kGroundLootRelicType;
 }
 
-bool ShouldFallbackGroundTypeToCorpse(uint32_t type,
+bool ShouldFallbackGroundTypeToCorpse(uint32_t type, ULONGLONG now,
                                       const ItemResolveResult& item) {
   if (type != kGroundLootType) return false;
   if (InterlockedCompareExchange(&g_corpse_enabled, 0, 0) == 0) return false;
+  if (!HasRecentCorpsePromptAction(now)) return false;
 
   // Current builds can report human corpse prompts as type 1. Real ground
   // items should resolve through prompt text; non-text multi-candidate matches
@@ -1015,14 +1017,27 @@ bool IsUnsafePromptActionFallbackType(uint32_t type) {
     case 4:
     case 19:
     case 24:
+    case 25:
+    case 26:
+    case 27:
+    case 29:
+    case 30:
+    case 31:
+    case 32:
+    case 33:
+    case 34:
+    case 35:
+    case 36:
+    case 37:
+    case 38:
+    case 39:
+    case 40:
+    case 41:
+    case 42:
     case 50:
     case 160:
     case 161:
     case 266:
-    case 29:
-    case 34:
-    case 35:
-    case 36:
     case 93:
       return true;
     default:
@@ -2680,7 +2695,7 @@ void ProcessGroundResolveRequest() {
   InterlockedExchange(&g_last_ground_item_text_match, item.text_match ? 1 : 0);
 
   if (!allowed || !confirmed) {
-    if (ShouldFallbackGroundTypeToCorpse(request.type, item)) {
+    if (ShouldFallbackGroundTypeToCorpse(request.type, now, item)) {
       InterlockedExchange(&g_pending_ground, 0);
       InterlockedExchange64(&g_pending_ground_tick, 0);
       ResetGroundAllowConfirm();
