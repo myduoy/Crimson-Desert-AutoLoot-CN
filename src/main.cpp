@@ -137,6 +137,15 @@ struct GroundAllowConfirm {
   ULONGLONG tick = 0;
 };
 
+struct GroundResolveRequest {
+  uint32_t type = 0;
+  uintptr_t target = 0;
+  uintptr_t candidate = 0;
+  uintptr_t context = 0;
+  ULONGLONG tick = 0;
+  LONG64 seq = 0;
+};
+
 struct PromptItemState {
   uint32_t key = 0;
   uint8_t category = kCatUnknown;
@@ -163,6 +172,7 @@ SRWLOCK g_blocked_items_lock = SRWLOCK_INIT;
 SRWLOCK g_resolve_cache_lock = SRWLOCK_INIT;
 SRWLOCK g_ground_confirm_lock = SRWLOCK_INIT;
 SRWLOCK g_prompt_item_lock = SRWLOCK_INIT;
+SRWLOCK g_ground_resolve_request_lock = SRWLOCK_INIT;
 
 volatile LONG g_enabled = 1;
 volatile LONG g_ground_enabled = 1;
@@ -217,6 +227,9 @@ std::vector<uint32_t> g_blocked_items;
 std::array<GroundResolveCacheEntry, 128> g_resolve_cache{};
 volatile LONG g_resolve_cache_cursor = 0;
 GroundAllowConfirm g_ground_confirm{};
+GroundResolveRequest g_ground_resolve_request{};
+volatile LONG64 g_ground_resolve_seq = 0;
+volatile LONG64 g_ground_resolve_processed_seq = 0;
 PromptItemState g_prompt_item{};
 HWND g_status_hwnd = nullptr;
 HFONT g_status_font = nullptr;
@@ -224,10 +237,8 @@ std::wstring g_status_text;
 ULONGLONG g_status_hide_at = 0;
 
 void Log(const char* fmt, ...) {
-  if (InterlockedCompareExchange(&g_debug_log, 0, 0) == 0 &&
-      g_log_path.empty()) {
-    return;
-  }
+  if (InterlockedCompareExchange(&g_debug_log, 0, 0) == 0) return;
+  if (g_log_path.empty()) return;
 
   FILE* f = nullptr;
   _wfopen_s(&f, g_log_path.c_str(), L"a, ccs=UTF-8");
@@ -1114,10 +1125,14 @@ bool ScanItemNameInRegion(uintptr_t base, size_t bytes, uint8_t source,
   return false;
 }
 
+bool ResolveGroundItemFromCandidateStrings(uintptr_t candidate,
+                                           ItemResolveResult* result);
+
 bool ResolveGroundItemByText(uintptr_t target, uintptr_t candidate,
                              uintptr_t context,
                              ItemResolveResult* result) {
   if (g_item_names.empty() || !result) return false;
+  if (ResolveGroundItemFromCandidateStrings(candidate, result)) return true;
   constexpr size_t kTextDirectScanBytes = 0x1000;
   constexpr size_t kTextPointerScanBytes = 0x500;
   constexpr size_t kTextPointerTableBytes = 0x240;
@@ -1626,6 +1641,9 @@ void StoreGroundResolveCache(uint32_t type, uintptr_t target,
 bool ShouldTryGroundTextRefine(const ItemResolveResult& item) {
   if (!item.resolved || item.ambiguous) return true;
   if (item.text_match) return false;
+  if (InterlockedCompareExchange(&g_item_filter_enabled, 0, 0) != 0) {
+    return true;
+  }
   const uint8_t category =
       item.category < kCatCount ? item.category : kCatUnknown;
   if (item.key == 1 || item.key == 1000000 || category == kCatUnknown) {
@@ -1663,13 +1681,8 @@ ItemResolveResult ResolveGroundItemCached(uint32_t type, uintptr_t target,
       StoreGroundResolveCache(type, target, candidate, prompt);
       return prompt;
     }
-    if (ShouldTryGroundTextRefine(result)) {
-      ItemResolveResult text{};
-      if (TryGroundTextRefine(target, candidate, context, result, &text)) {
-        StoreGroundResolveCache(type, target, candidate, text);
-        return text;
-      }
-    }
+    // A cached numeric-only miss already tried text refinement before it was
+    // stored. Retrying every prompt callback causes small frame hitches.
     return result;
   }
   if (ResolveGroundItemFromPrompt(&result)) {
@@ -1711,6 +1724,50 @@ void ResetGroundAllowConfirm() {
   ReleaseSRWLockExclusive(&g_ground_confirm_lock);
 }
 
+void ClearGroundResolveRequest() {
+  AcquireSRWLockExclusive(&g_ground_resolve_request_lock);
+  g_ground_resolve_request = GroundResolveRequest{};
+  ReleaseSRWLockExclusive(&g_ground_resolve_request_lock);
+  InterlockedExchange64(&g_ground_resolve_seq, 0);
+  InterlockedExchange64(&g_ground_resolve_processed_seq, 0);
+}
+
+void QueueGroundResolveRequest(uint32_t type, uintptr_t target,
+                               uintptr_t candidate, uintptr_t context,
+                               ULONGLONG tick) {
+  GroundResolveRequest request{};
+  request.type = type;
+  request.target = target;
+  request.candidate = candidate;
+  request.context = context;
+  request.tick = tick;
+  request.seq = InterlockedIncrement64(&g_ground_resolve_seq);
+
+  AcquireSRWLockExclusive(&g_ground_resolve_request_lock);
+  g_ground_resolve_request = request;
+  ReleaseSRWLockExclusive(&g_ground_resolve_request_lock);
+}
+
+bool TakeGroundResolveRequest(GroundResolveRequest* request) {
+  if (!request) return false;
+  GroundResolveRequest snapshot{};
+  AcquireSRWLockShared(&g_ground_resolve_request_lock);
+  snapshot = g_ground_resolve_request;
+  ReleaseSRWLockShared(&g_ground_resolve_request_lock);
+  if (snapshot.seq == 0) return false;
+
+  const LONG64 processed =
+      InterlockedCompareExchange64(&g_ground_resolve_processed_seq, 0, 0);
+  if (snapshot.seq == processed) return false;
+  if (InterlockedCompareExchange64(&g_ground_resolve_processed_seq,
+                                   snapshot.seq, processed) != processed) {
+    return false;
+  }
+
+  *request = snapshot;
+  return true;
+}
+
 void ResetLootRuntimeState(const char* reason) {
   InterlockedExchange(&g_pending_ground, 0);
   InterlockedExchange(&g_pending_corpse, 0);
@@ -1720,6 +1777,7 @@ void ResetLootRuntimeState(const char* reason) {
   InterlockedExchange(&g_last_prompt_queue_key, 0);
   InterlockedExchange64(&g_last_prompt_queue_tick, 0);
   ClearPromptItem();
+  ClearGroundResolveRequest();
   ResetGroundAllowConfirm();
   AcquireSRWLockExclusive(&g_resolve_cache_lock);
   g_resolve_cache = {};
@@ -1804,46 +1862,26 @@ RecordInteraction(uint32_t type, uintptr_t target, uintptr_t candidate,
 
   if (IsGroundLootType(type) &&
       InterlockedCompareExchange(&g_ground_enabled, 0, 0) != 0) {
-    ItemResolveResult item{};
     const bool filter_active =
         InterlockedCompareExchange(&g_item_filter_enabled, 0, 0) != 0;
     if (filter_active) {
-      item = ResolveGroundItemCached(type, target, candidate, context);
+      QueueGroundResolveRequest(type, target, candidate, context, now);
+      return;
     }
-    const bool known_item =
-        filter_active ? IsReliableFilteredGroundItem(item) : item.resolved;
-    const uint8_t category = known_item ? item.category : kCatUnknown;
-    const bool blocked = known_item && IsItemBlocked(item.key);
-    bool allowed = IsItemCategoryAllowed(category) && !blocked;
-    bool confirmed = true;
-    if (filter_active && item.resolved && !item.text_match) allowed = false;
+
     InterlockedExchange64(&g_last_ground_target, static_cast<LONG64>(target));
     InterlockedExchange64(&g_last_ground_candidate,
                           static_cast<LONG64>(candidate));
-    InterlockedExchange(&g_last_ground_item_key,
-                        item.resolved ? static_cast<LONG>(item.key) : 0);
-    InterlockedExchange(&g_last_ground_item_category, category);
-    InterlockedExchange(&g_last_ground_item_allowed, allowed ? 1 : 0);
-    InterlockedExchange(&g_last_ground_item_blocked, blocked ? 1 : 0);
-    InterlockedExchange(&g_last_ground_item_offset,
-                        item.resolved ? static_cast<LONG>(item.offset) : -1);
-    InterlockedExchange(&g_last_ground_item_source,
-                        item.resolved ? static_cast<LONG>(item.source) : 0);
-    InterlockedExchange(&g_last_ground_item_ambiguous,
-                        item.ambiguous ? 1 : 0);
-    InterlockedExchange(&g_last_ground_item_unique_keys,
-                        static_cast<LONG>(item.unique_keys));
-    InterlockedExchange(&g_last_ground_item_confirmed,
-                        confirmed ? 1 : 0);
-    InterlockedExchange(&g_last_ground_item_text_match,
-                        item.text_match ? 1 : 0);
-    if (!allowed || !confirmed) {
-      InterlockedExchange(&g_pending_ground, 0);
-      InterlockedExchange64(&g_pending_ground_tick, 0);
-      if (!allowed) ResetGroundAllowConfirm();
-      if (type < g_filtered.size()) InterlockedIncrement64(&g_filtered[type]);
-      return;
-    }
+    InterlockedExchange(&g_last_ground_item_key, 0);
+    InterlockedExchange(&g_last_ground_item_category, kCatUnknown);
+    InterlockedExchange(&g_last_ground_item_allowed, 1);
+    InterlockedExchange(&g_last_ground_item_blocked, 0);
+    InterlockedExchange(&g_last_ground_item_offset, -1);
+    InterlockedExchange(&g_last_ground_item_source, 0);
+    InterlockedExchange(&g_last_ground_item_ambiguous, 0);
+    InterlockedExchange(&g_last_ground_item_unique_keys, 0);
+    InterlockedExchange(&g_last_ground_item_confirmed, 1);
+    InterlockedExchange(&g_last_ground_item_text_match, 0);
     InterlockedExchange(&g_pending_ground, 1);
     InterlockedExchange64(&g_pending_ground_tick,
                           static_cast<LONG64>(GetTickCount64()));
@@ -2393,6 +2431,76 @@ void HandleConfigHotkey() {
   was_down = down;
 }
 
+void ProcessGroundResolveRequest() {
+  GroundResolveRequest request{};
+  if (!TakeGroundResolveRequest(&request)) return;
+
+  if (InterlockedCompareExchange(&g_enabled, 0, 0) == 0 ||
+      InterlockedCompareExchange(&g_ground_enabled, 0, 0) == 0) {
+    return;
+  }
+
+  const ULONGLONG now = GetTickCount64();
+  const LONG interval = InterlockedCompareExchange(&g_trigger_interval_ms, 0, 0);
+  ULONGLONG max_age = static_cast<ULONGLONG>(interval) + 250;
+  if (max_age < kPendingInputMaxAgeMs) max_age = kPendingInputMaxAgeMs;
+  if (request.tick == 0 || now - request.tick > max_age) return;
+
+  if (InterlockedCompareExchange(&g_item_filter_enabled, 0, 0) == 0) {
+    InterlockedExchange(&g_pending_ground, 1);
+    InterlockedExchange64(&g_pending_ground_tick, static_cast<LONG64>(now));
+    if (request.type < g_triggered.size()) {
+      InterlockedIncrement64(&g_triggered[request.type]);
+    }
+    return;
+  }
+
+  ItemResolveResult item =
+      ResolveGroundItemCached(request.type, request.target, request.candidate,
+                              request.context);
+  const bool known_item = IsReliableFilteredGroundItem(item);
+  const uint8_t category = known_item ? item.category : kCatUnknown;
+  const bool blocked = known_item && IsItemBlocked(item.key);
+  bool allowed = IsItemCategoryAllowed(category) && !blocked;
+  const bool confirmed = true;
+  if (item.resolved && !item.text_match) allowed = false;
+
+  InterlockedExchange64(&g_last_ground_target,
+                        static_cast<LONG64>(request.target));
+  InterlockedExchange64(&g_last_ground_candidate,
+                        static_cast<LONG64>(request.candidate));
+  InterlockedExchange(&g_last_ground_item_key,
+                      item.resolved ? static_cast<LONG>(item.key) : 0);
+  InterlockedExchange(&g_last_ground_item_category, category);
+  InterlockedExchange(&g_last_ground_item_allowed, allowed ? 1 : 0);
+  InterlockedExchange(&g_last_ground_item_blocked, blocked ? 1 : 0);
+  InterlockedExchange(&g_last_ground_item_offset,
+                      item.resolved ? static_cast<LONG>(item.offset) : -1);
+  InterlockedExchange(&g_last_ground_item_source,
+                      item.resolved ? static_cast<LONG>(item.source) : 0);
+  InterlockedExchange(&g_last_ground_item_ambiguous, item.ambiguous ? 1 : 0);
+  InterlockedExchange(&g_last_ground_item_unique_keys,
+                      static_cast<LONG>(item.unique_keys));
+  InterlockedExchange(&g_last_ground_item_confirmed, confirmed ? 1 : 0);
+  InterlockedExchange(&g_last_ground_item_text_match, item.text_match ? 1 : 0);
+
+  if (!allowed || !confirmed) {
+    InterlockedExchange(&g_pending_ground, 0);
+    InterlockedExchange64(&g_pending_ground_tick, 0);
+    if (!allowed) ResetGroundAllowConfirm();
+    if (request.type < g_filtered.size()) {
+      InterlockedIncrement64(&g_filtered[request.type]);
+    }
+    return;
+  }
+
+  InterlockedExchange(&g_pending_ground, 1);
+  InterlockedExchange64(&g_pending_ground_tick, static_cast<LONG64>(now));
+  if (request.type < g_triggered.size()) {
+    InterlockedIncrement64(&g_triggered[request.type]);
+  }
+}
+
 void ProcessPendingInput(ULONGLONG& last_press) {
   if (InterlockedCompareExchange(&g_enabled, 0, 0) == 0) {
     InterlockedExchange(&g_pending_ground, 0);
@@ -2503,6 +2611,7 @@ DWORD WINAPI WorkerThread(void*) {
     HandleConfigHotkey();
     const ULONGLONG now = GetTickCount64();
     if (InterlockedCompareExchange(&g_enabled, 0, 0) != 0) {
+      ProcessGroundResolveRequest();
       ProcessPendingInput(last_press);
     } else {
       InterlockedExchange(&g_pending_ground, 0);

@@ -12,10 +12,13 @@ Crimson Desert AutoLoot CN 是一个 Windows x64 ASI 插件，用于给 Crimson 
 - 中文配置界面：可视化开关功能、设置热键、搜索物品、打开日志和物品表。
 - 当前系统语言物品名：物品列表优先显示当前语言名称，未翻译时回退到英文或内部名。
 - 热加载配置：配置文件保存后，游戏内插件会自动重新读取。
+- 低卡顿过滤：地面物品的重文本解析在插件 worker 线程中处理，避免阻塞游戏 hook 回调。
 
 ## 当前版本说明
 
 当前公开版本不包含“战斗中暂停自动拾取”功能。之前用于探测战斗状态、武器状态、UI 提示扫描的代码已经移除，避免误判和卡顿。
+
+`v0.1.1` 起默认关闭调试日志，并减少同一地面物品的重复文本扫描。如果需要排查问题，可以在 `crimson_autoloot_cn.ini` 中把 `DebugLog=1` 打开。
 
 ## 文件说明
 
@@ -103,6 +106,8 @@ build\crimson_autoloot_config.exe
 ```text
 <Crimson Desert>\bin64\crimson_autoloot_cn\crimson_autoloot_cn.log
 ```
+
+默认 `DebugLog=0`，不会持续写入运行日志。排查问题时再临时改为 `DebugLog=1`。
 
 如果自动拾取不生效，先确认：
 

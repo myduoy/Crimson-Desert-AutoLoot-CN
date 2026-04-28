@@ -2,9 +2,9 @@ $ErrorActionPreference = "Stop"
 
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Dist = Join-Path $Root "dist"
-$Stage = Join-Path $Dist "crimson-autoloot-cn"
+$Stage = Join-Path $Dist "Crimson-Desert-AutoLoot-CN"
 $Support = Join-Path $Stage "crimson_autoloot_cn"
-$Zip = Join-Path $Dist "crimson-autoloot-cn-v0.1.0.zip"
+$Zip = Join-Path $Dist "Crimson-Desert-AutoLoot-CN-v0.1.1.zip"
 
 if (Test-Path -LiteralPath $Stage) {
   Remove-Item -LiteralPath $Stage -Recurse -Force
