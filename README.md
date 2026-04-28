@@ -9,10 +9,20 @@ This is an unofficial community plugin. It does not include game files and is no
 - Automatic ground loot by sending the configured interact key when a loot prompt is detected.
 - Automatic corpse looting for search/loot corpse prompts.
 - Category-based item filtering and per-item block list.
-- Chinese configuration UI for feature toggles, hotkeys, item search, logs, and item table browsing.
+- Chinese/English configuration UI for feature toggles, hotkeys, item search, logs, and item table browsing.
+- Automatic UI language detection, plus manual `Auto` / `Chinese` / `English` selection.
 - Localized item names in the item table, with fallback to English or internal names when a translation is missing.
 - Hot-reloaded configuration when the INI file changes.
 - Lower-stutter filtering path: expensive ground-item text resolution runs on the plugin worker thread instead of the game hook callback.
+
+## v0.1.4 Fixes
+
+- Fixed `InteractKey` changes not working for full key names such as `Space`, `Tab`, `Insert`, `Delete`, arrow keys, and function keys.
+- Stopped the configuration UI from truncating the interact key to one character.
+- Added Chinese/English automatic language detection and a language selector.
+- Added English UI labels, category names, status messages, and English item-name display.
+- Added `Language=Auto` to the default configuration.
+- Updated release binaries.
 
 ## v0.1.3 Fixes
 

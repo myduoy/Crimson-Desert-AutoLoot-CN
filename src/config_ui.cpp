@@ -37,6 +37,7 @@ enum ControlId {
   IDC_INTERVAL_EDIT,
   IDC_TOGGLE_HOTKEY_EDIT,
   IDC_CONFIG_HOTKEY_EDIT,
+  IDC_LANGUAGE_COMBO,
   IDC_SAVE,
   IDC_RELOAD,
   IDC_OPEN_LOG,
@@ -67,12 +68,22 @@ enum ControlId {
   IDC_CAT_VEHICLE_GEAR,
   IDC_CAT_EQUIPMENT,
   IDC_CAT_MISC,
+  IDC_LABEL_TITLE = 1400,
+  IDC_LABEL_INTERACT_KEY,
+  IDC_LABEL_INTERVAL,
+  IDC_LABEL_TOGGLE_HOTKEY,
+  IDC_LABEL_CONFIG_HOTKEY,
+  IDC_LABEL_LANGUAGE,
+  IDC_LABEL_CATEGORY,
+  IDC_LABEL_ITEMS,
+  IDC_LABEL_SEARCH,
 };
 
 struct CategoryControl {
   int id;
   const wchar_t* key;
   const wchar_t* label;
+  const wchar_t* english_label;
 };
 
 struct ItemRow {
@@ -85,27 +96,32 @@ struct ItemRow {
 };
 
 const CategoryControl kCategories[] = {
-    {IDC_CAT_UNKNOWN, L"Unknown", L"\u672a\u77e5/\u672a\u89e3\u6790"},
-    {IDC_CAT_CURRENCY, L"Currency", L"\u8d27\u5e01"},
-    {IDC_CAT_MATERIAL, L"Material", L"\u6750\u6599"},
-    {IDC_CAT_CONSUMABLE, L"Consumable", L"\u6d88\u8017\u54c1"},
-    {IDC_CAT_FOOD, L"Food", L"\u98df\u7269/\u9c7c\u7c7b"},
-    {IDC_CAT_RECIPE, L"Recipe", L"\u56fe\u7eb8/\u914d\u65b9"},
-    {IDC_CAT_DOCUMENT, L"Document", L"\u4e66\u7c4d/\u6587\u4ef6"},
-    {IDC_CAT_TRADE, L"Trade", L"\u8d38\u6613\u54c1"},
-    {IDC_CAT_AMMO, L"Ammo", L"\u5f39\u836f"},
-    {IDC_CAT_QUEST, L"Quest", L"\u4efb\u52a1\u7269\u54c1"},
-    {IDC_CAT_WEAPON, L"Weapon", L"\u6b66\u5668"},
-    {IDC_CAT_ARMOR, L"Armor", L"\u9632\u5177"},
-    {IDC_CAT_ACCESSORY, L"Accessory", L"\u9970\u54c1"},
-    {IDC_CAT_TOOL, L"Tool", L"\u5de5\u5177"},
-    {IDC_CAT_HORSE_GEAR, L"HorseGear", L"\u9a6c\u5177"},
-    {IDC_CAT_PET_GEAR, L"PetGear", L"\u5ba0\u7269\u88c5\u5907"},
-    {IDC_CAT_VEHICLE_GEAR, L"VehicleGear", L"\u8f7d\u5177\u88c5\u5907"},
-    {IDC_CAT_EQUIPMENT, L"Equipment", L"\u5176\u4ed6\u88c5\u5907"},
-    {IDC_CAT_MISC, L"Misc", L"\u6742\u9879"},
+    {IDC_CAT_UNKNOWN, L"Unknown", L"\u672a\u77e5/\u672a\u89e3\u6790", L"Unknown"},
+    {IDC_CAT_CURRENCY, L"Currency", L"\u8d27\u5e01", L"Currency"},
+    {IDC_CAT_MATERIAL, L"Material", L"\u6750\u6599", L"Material"},
+    {IDC_CAT_CONSUMABLE, L"Consumable", L"\u6d88\u8017\u54c1", L"Consumable"},
+    {IDC_CAT_FOOD, L"Food", L"\u98df\u7269/\u9c7c\u7c7b", L"Food / Fish"},
+    {IDC_CAT_RECIPE, L"Recipe", L"\u56fe\u7eb8/\u914d\u65b9", L"Recipe"},
+    {IDC_CAT_DOCUMENT, L"Document", L"\u4e66\u7c4d/\u6587\u4ef6", L"Document"},
+    {IDC_CAT_TRADE, L"Trade", L"\u8d38\u6613\u54c1", L"Trade"},
+    {IDC_CAT_AMMO, L"Ammo", L"\u5f39\u836f", L"Ammo"},
+    {IDC_CAT_QUEST, L"Quest", L"\u4efb\u52a1\u7269\u54c1", L"Quest"},
+    {IDC_CAT_WEAPON, L"Weapon", L"\u6b66\u5668", L"Weapon"},
+    {IDC_CAT_ARMOR, L"Armor", L"\u9632\u5177", L"Armor"},
+    {IDC_CAT_ACCESSORY, L"Accessory", L"\u9970\u54c1", L"Accessory"},
+    {IDC_CAT_TOOL, L"Tool", L"\u5de5\u5177", L"Tool"},
+    {IDC_CAT_HORSE_GEAR, L"HorseGear", L"\u9a6c\u5177", L"Horse Gear"},
+    {IDC_CAT_PET_GEAR, L"PetGear", L"\u5ba0\u7269\u88c5\u5907", L"Pet Gear"},
+    {IDC_CAT_VEHICLE_GEAR, L"VehicleGear", L"\u8f7d\u5177\u88c5\u5907", L"Vehicle Gear"},
+    {IDC_CAT_EQUIPMENT, L"Equipment", L"\u5176\u4ed6\u88c5\u5907", L"Equipment"},
+    {IDC_CAT_MISC, L"Misc", L"\u6742\u9879", L"Misc"},
 };
 constexpr size_t kCategoryCount = sizeof(kCategories) / sizeof(kCategories[0]);
+
+enum class UiLanguage {
+  kChinese,
+  kEnglish,
+};
 
 HINSTANCE g_instance = nullptr;
 HWND g_hwnd = nullptr;
@@ -126,6 +142,8 @@ std::vector<ItemRow> g_items;
 std::vector<size_t> g_displayed_item_indices;
 std::wstring g_item_language;
 std::array<bool, kCategoryCount> g_category_enabled_ui{};
+std::wstring g_language_setting = L"Auto";
+UiLanguage g_ui_language = UiLanguage::kChinese;
 
 std::wstring ModuleDirectory() {
   wchar_t path[MAX_PATH]{};
@@ -140,12 +158,108 @@ int ReadIniInt(const wchar_t* section, const wchar_t* key, int fallback) {
   return GetPrivateProfileIntW(section, key, fallback, g_ini_path.c_str());
 }
 
+std::wstring TrimIniWide(const std::wstring& text) {
+  size_t begin = 0;
+  size_t end = text.size();
+  while (begin < end && std::iswspace(text[begin])) ++begin;
+  while (end > begin && std::iswspace(text[end - 1])) --end;
+  return text.substr(begin, end - begin);
+}
+
+std::wstring LoadIniTextManual() {
+  FILE* f = nullptr;
+  if (_wfopen_s(&f, g_ini_path.c_str(), L"rb") != 0 || !f) return {};
+  std::fseek(f, 0, SEEK_END);
+  const long size_long = std::ftell(f);
+  std::fseek(f, 0, SEEK_SET);
+  if (size_long <= 0) {
+    std::fclose(f);
+    return {};
+  }
+
+  std::vector<unsigned char> bytes(static_cast<size_t>(size_long));
+  const size_t read = std::fread(bytes.data(), 1, bytes.size(), f);
+  std::fclose(f);
+  bytes.resize(read);
+  if (bytes.empty()) return {};
+
+  if (bytes.size() >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE) {
+    const size_t chars = (bytes.size() - 2) / sizeof(wchar_t);
+    return std::wstring(reinterpret_cast<const wchar_t*>(bytes.data() + 2),
+                        chars);
+  }
+
+  size_t offset = 0;
+  if (bytes.size() >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB &&
+      bytes[2] == 0xBF) {
+    offset = 3;
+  }
+  const char* data = reinterpret_cast<const char*>(bytes.data() + offset);
+  const int len = static_cast<int>(bytes.size() - offset);
+  int needed = MultiByteToWideChar(CP_UTF8, 0, data, len, nullptr, 0);
+  UINT codepage = CP_UTF8;
+  if (needed <= 0) {
+    codepage = CP_ACP;
+    needed = MultiByteToWideChar(codepage, 0, data, len, nullptr, 0);
+  }
+  if (needed <= 0) return {};
+  std::wstring out(static_cast<size_t>(needed), L'\0');
+  MultiByteToWideChar(codepage, 0, data, len, out.data(), needed);
+  return out;
+}
+
+bool ReadIniStringManual(const wchar_t* section, const wchar_t* key,
+                         std::wstring* value) {
+  if (!section || !key || !value) return false;
+  const std::wstring text = LoadIniTextManual();
+  if (text.empty()) return false;
+
+  std::wstring current_section;
+  size_t pos = 0;
+  bool first_line = true;
+  while (pos <= text.size()) {
+    size_t next = text.find(L'\n', pos);
+    std::wstring line =
+        next == std::wstring::npos ? text.substr(pos) : text.substr(pos, next - pos);
+    if (!line.empty() && line.back() == L'\r') line.pop_back();
+    if (first_line && !line.empty() && line[0] == 0xFEFF) line.erase(0, 1);
+    first_line = false;
+
+    line = TrimIniWide(line);
+    if (!line.empty() && line[0] != L';' && line[0] != L'#') {
+      if (line.front() == L'[') {
+        const size_t close = line.find(L']');
+        if (close != std::wstring::npos) {
+          current_section = TrimIniWide(line.substr(1, close - 1));
+        }
+      } else if (_wcsicmp(current_section.c_str(), section) == 0) {
+        const size_t eq = line.find(L'=');
+        if (eq != std::wstring::npos) {
+          std::wstring name = TrimIniWide(line.substr(0, eq));
+          if (_wcsicmp(name.c_str(), key) == 0) {
+            *value = TrimIniWide(line.substr(eq + 1));
+            return true;
+          }
+        }
+      }
+    }
+
+    if (next == std::wstring::npos) break;
+    pos = next + 1;
+  }
+  return false;
+}
+
 std::wstring ReadIniString(const wchar_t* section, const wchar_t* key,
                            const wchar_t* fallback) {
   wchar_t buffer[128]{};
-  GetPrivateProfileStringW(section, key, fallback, buffer,
+  GetPrivateProfileStringW(section, key, L"", buffer,
                            static_cast<DWORD>(sizeof(buffer) / sizeof(buffer[0])),
                            g_ini_path.c_str());
+  if (buffer[0] != L'\0') return buffer;
+  std::wstring manual;
+  if (ReadIniStringManual(section, key, &manual)) return manual;
+  if (fallback && fallback[0]) return fallback;
   return buffer;
 }
 
@@ -159,6 +273,163 @@ void WriteIniString(const wchar_t* section, const wchar_t* key,
   WritePrivateProfileStringW(section, key, value.c_str(), g_ini_path.c_str());
 }
 
+bool IsChineseSystemLanguage() {
+  const LANGID lang = GetUserDefaultUILanguage();
+  return PRIMARYLANGID(lang) == LANG_CHINESE;
+}
+
+std::wstring NormalizeLanguageSetting(std::wstring value) {
+  for (wchar_t& ch : value) {
+    if (ch >= L'a' && ch <= L'z') ch = static_cast<wchar_t>(ch - L'a' + L'A');
+  }
+  if (value == L"ZH" || value == L"CHINESE" || value == L"CN") return L"zh";
+  if (value == L"EN" || value == L"ENGLISH") return L"en";
+  return L"Auto";
+}
+
+UiLanguage ResolveLanguage(const std::wstring& setting) {
+  const std::wstring normalized = NormalizeLanguageSetting(setting);
+  if (normalized == L"zh") return UiLanguage::kChinese;
+  if (normalized == L"en") return UiLanguage::kEnglish;
+  return IsChineseSystemLanguage() ? UiLanguage::kChinese
+                                   : UiLanguage::kEnglish;
+}
+
+void LoadLanguageSetting() {
+  g_language_setting =
+      NormalizeLanguageSetting(ReadIniString(L"General", L"Language", L"Auto"));
+  g_ui_language = ResolveLanguage(g_language_setting);
+}
+
+bool IsEnglishUi() { return g_ui_language == UiLanguage::kEnglish; }
+
+enum class TextId {
+  kWindowTitle,
+  kTitle,
+  kEnabled,
+  kGround,
+  kCorpse,
+  kFilter,
+  kForeground,
+  kDebug,
+  kInteractKey,
+  kInterval,
+  kToggleHotkey,
+  kConfigHotkey,
+  kLanguage,
+  kCategory,
+  kItems,
+  kSearch,
+  kClear,
+  kSave,
+  kReload,
+  kLog,
+  kItemTable,
+  kAutoLanguage,
+  kChineseLanguage,
+  kEnglishLanguage,
+  kStatusChooseCategory,
+  kStatusCurrentCategory,
+  kStatusShown,
+  kStatusRows,
+  kStatusSaved,
+  kStatusHotkeyConflict,
+  kStatusSelectItem,
+  kStatusBlocked,
+  kStatusRestored,
+  kStatusCategoryEnabled,
+  kStatusCategoryDisabled,
+};
+
+const wchar_t* UiText(TextId id) {
+  const bool en = IsEnglishUi();
+  switch (id) {
+    case TextId::kWindowTitle:
+      return en ? L"Crimson Desert AutoLoot CN Config"
+                : L"\u81ea\u52a8\u62fe\u53d6\u4e2d\u6587\u914d\u7f6e";
+    case TextId::kTitle:
+      return en ? L"Crimson Desert AutoLoot" : L"Crimson Desert \u81ea\u52a8\u62fe\u53d6";
+    case TextId::kEnabled:
+      return en ? L"Enable" : L"\u542f\u7528";
+    case TextId::kGround:
+      return en ? L"Ground" : L"\u5730\u9762";
+    case TextId::kCorpse:
+      return en ? L"Corpse" : L"\u6478\u5c38";
+    case TextId::kFilter:
+      return en ? L"Filter" : L"\u8fc7\u6ee4";
+    case TextId::kForeground:
+      return en ? L"Only when game is foreground"
+                : L"\u53ea\u5728\u6e38\u620f\u524d\u53f0\u65f6\u89e6\u53d1";
+    case TextId::kDebug:
+      return en ? L"Debug" : L"\u8c03\u8bd5";
+    case TextId::kInteractKey:
+      return en ? L"Interact" : L"\u4ea4\u4e92\u952e";
+    case TextId::kInterval:
+      return en ? L"Interval" : L"\u95f4\u9694";
+    case TextId::kToggleHotkey:
+      return en ? L"Toggle" : L"\u5f00\u5173\u952e";
+    case TextId::kConfigHotkey:
+      return en ? L"Panel" : L"\u9762\u677f\u952e";
+    case TextId::kLanguage:
+      return en ? L"Language" : L"\u8bed\u8a00";
+    case TextId::kCategory:
+      return en ? L"Category" : L"\u5206\u7c7b";
+    case TextId::kItems:
+      return en ? L"Items" : L"\u7269\u54c1";
+    case TextId::kSearch:
+      return en ? L"Search" : L"\u641c\u7d22";
+    case TextId::kClear:
+      return en ? L"Clear" : L"\u6e05\u7a7a";
+    case TextId::kSave:
+      return en ? L"Save" : L"\u4fdd\u5b58";
+    case TextId::kReload:
+      return en ? L"Reload" : L"\u91cd\u8bfb";
+    case TextId::kLog:
+      return en ? L"Log" : L"\u65e5\u5fd7";
+    case TextId::kItemTable:
+      return en ? L"Item Table" : L"\u7269\u54c1\u8868";
+    case TextId::kAutoLanguage:
+      return en ? L"Auto" : L"\u81ea\u52a8";
+    case TextId::kChineseLanguage:
+      return en ? L"Chinese" : L"\u4e2d\u6587";
+    case TextId::kEnglishLanguage:
+      return en ? L"English" : L"\u82f1\u6587";
+    case TextId::kStatusChooseCategory:
+      return en ? L"Select a category on the left to show items."
+                : L"\u8bf7\u5728\u5de6\u4fa7\u9009\u62e9\u4e00\u4e2a\u7c7b\u522b\u67e5\u770b\u7269\u54c1\u3002";
+    case TextId::kStatusCurrentCategory:
+      return en ? L"Current category " : L"\u5f53\u524d\u7c7b\u522b ";
+    case TextId::kStatusShown:
+      return en ? L", showing " : L"\uff0c\u663e\u793a ";
+    case TextId::kStatusRows:
+      return en ? L" rows." : L" \u6761\u3002";
+    case TextId::kStatusSaved:
+      return en ? L"Saved. The in-game plugin hot-reloads automatically."
+                : L"\u5df2\u4fdd\u5b58\u3002\u6e38\u620f\u5185\u63d2\u4ef6\u4f1a\u81ea\u52a8\u70ed\u52a0\u8f7d\uff0c\u65e0\u9700\u91cd\u542f\u3002";
+    case TextId::kStatusHotkeyConflict:
+      return en ? L"Saved. Conflicting hotkeys were reset to F9 / F10."
+                : L"\u5df2\u4fdd\u5b58\u3002\u70ed\u952e\u4e0e\u6e38\u620f\u6309\u952e\u51b2\u7a81\uff0c\u5df2\u81ea\u52a8\u6539\u4e3a F9 / F10\u3002";
+    case TextId::kStatusSelectItem:
+      return en ? L"Select an item in the item list first."
+                : L"\u8bf7\u5148\u5728\u7269\u54c1\u5217\u8868\u91cc\u9009\u4e2d\u4e00\u4e2a\u7269\u54c1\u3002";
+    case TextId::kStatusBlocked:
+      return en ? L"Disabled pickup: " : L"\u5df2\u8bbe\u4e3a\u4e0d\u62fe\u53d6\uff1a";
+    case TextId::kStatusRestored:
+      return en ? L"Enabled pickup: " : L"\u5df2\u6062\u590d\u62fe\u53d6\uff1a";
+    case TextId::kStatusCategoryEnabled:
+      return en ? L"Enabled category pickup and restored all items: "
+                : L"\u5df2\u5f00\u542f\u5206\u7c7b\u62fe\u53d6\u5e76\u6062\u590d\u8be5\u7c7b\u5168\u90e8\u7269\u54c1\uff1a";
+    case TextId::kStatusCategoryDisabled:
+      return en ? L"Disabled category pickup and blocked all items: "
+                : L"\u5df2\u5173\u95ed\u5206\u7c7b\u62fe\u53d6\u5e76\u53d6\u6d88\u8be5\u7c7b\u5168\u90e8\u7269\u54c1\uff1a";
+  }
+  return L"";
+}
+
+void RefreshCategoryList();
+void RefreshItemList();
+void ApplyLanguageToUi();
+
 HWND Ctrl(int id) { return GetDlgItem(g_hwnd, id); }
 
 void SetCheck(int id, bool checked) {
@@ -171,15 +442,55 @@ bool GetCheck(int id) {
 
 std::wstring GetText(int id) {
   wchar_t buffer[256]{};
-  GetWindowTextW(Ctrl(id), buffer, static_cast<int>(sizeof(buffer) / sizeof(buffer[0])));
+  HWND hwnd = Ctrl(id);
+  if (!hwnd) return L"";
+  GetWindowTextW(hwnd, buffer, static_cast<int>(sizeof(buffer) / sizeof(buffer[0])));
   return buffer;
 }
 
 void SetText(int id, const std::wstring& text) {
-  SetWindowTextW(Ctrl(id), text.c_str());
+  HWND hwnd = Ctrl(id);
+  if (hwnd) SetWindowTextW(hwnd, text.c_str());
 }
 
 void SetStatus(const std::wstring& text) { SetText(IDC_STATUS, text); }
+
+int LanguageComboIndexFromSetting(const std::wstring& setting) {
+  const std::wstring normalized = NormalizeLanguageSetting(setting);
+  if (normalized == L"zh") return 1;
+  if (normalized == L"en") return 2;
+  return 0;
+}
+
+std::wstring LanguageSettingFromComboIndex(int index) {
+  if (index == 1) return L"zh";
+  if (index == 2) return L"en";
+  return L"Auto";
+}
+
+void FillLanguageCombo() {
+  HWND combo = Ctrl(IDC_LANGUAGE_COMBO);
+  if (!combo) return;
+  SendMessageW(combo, CB_RESETCONTENT, 0, 0);
+  SendMessageW(combo, CB_ADDSTRING, 0,
+               reinterpret_cast<LPARAM>(UiText(TextId::kAutoLanguage)));
+  SendMessageW(combo, CB_ADDSTRING, 0,
+               reinterpret_cast<LPARAM>(UiText(TextId::kChineseLanguage)));
+  SendMessageW(combo, CB_ADDSTRING, 0,
+               reinterpret_cast<LPARAM>(UiText(TextId::kEnglishLanguage)));
+  SendMessageW(combo, CB_SETCURSEL,
+               static_cast<WPARAM>(LanguageComboIndexFromSetting(g_language_setting)),
+               0);
+}
+
+void SaveLanguageFromCombo() {
+  HWND combo = Ctrl(IDC_LANGUAGE_COMBO);
+  if (!combo) return;
+  const int index = static_cast<int>(SendMessageW(combo, CB_GETCURSEL, 0, 0));
+  g_language_setting = LanguageSettingFromComboIndex(index);
+  g_ui_language = ResolveLanguage(g_language_setting);
+  WriteIniString(L"General", L"Language", g_language_setting);
+}
 
 std::wstring Utf8ToWide(const char* text) {
   if (!text) return L"";
@@ -223,7 +534,7 @@ int CategoryIndexByKey(const std::wstring& key) {
 std::wstring CategoryDisplay(const std::wstring& key) {
   const CategoryControl* category = FindCategory(key);
   if (!category) return key;
-  return category->label;
+  return IsEnglishUi() ? category->english_label : category->label;
 }
 
 std::wstring ToLower(std::wstring text) {
@@ -252,19 +563,36 @@ std::wstring UpperAscii(std::wstring text) {
   return text;
 }
 
-bool IsValidHotkeyKey(const std::wstring& token) {
+bool IsValidKeyName(const std::wstring& token) {
   if (token.size() == 1) {
     const wchar_t ch = token[0];
-    return (ch >= L'A' && ch <= L'Z') || (ch >= L'0' && ch <= L'9');
+    return (ch >= L'A' && ch <= L'Z') || (ch >= L'0' && ch <= L'9') ||
+           ch == L'`';
   }
   if (token.size() >= 2 && token[0] == L'F') {
     const int fn = _wtoi(token.c_str() + 1);
-    return fn >= 1 && fn <= 12;
+    return fn >= 1 && fn <= 24;
   }
-  return token == L"INS" || token == L"INSERT" || token == L"DEL" ||
-         token == L"DELETE" || token == L"HOME" || token == L"END" ||
-         token == L"PGUP" || token == L"PAGEUP" || token == L"PGDN" ||
-         token == L"PAGEDOWN";
+  return token == L"SPACE" || token == L"SPACEBAR" || token == L"TAB" ||
+         token == L"ENTER" || token == L"RETURN" || token == L"ESC" ||
+         token == L"ESCAPE" || token == L"BACKSPACE" ||
+         token == L"BKSP" || token == L"INS" || token == L"INSERT" ||
+         token == L"DEL" || token == L"DELETE" || token == L"HOME" ||
+         token == L"END" || token == L"PGUP" || token == L"PAGEUP" ||
+         token == L"PGDN" || token == L"PAGEDOWN" || token == L"UP" ||
+         token == L"DOWN" || token == L"LEFT" || token == L"RIGHT" ||
+         token == L"CAPS" || token == L"CAPSLOCK" || token == L"SHIFT" ||
+         token == L"CTRL" || token == L"CONTROL" || token == L"ALT" ||
+         token == L"MENU";
+}
+
+std::wstring NormalizeInteractKeyText(const std::wstring& text,
+                                      const wchar_t* fallback) {
+  std::wstring key = UpperAscii(Trim(text));
+  std::replace(key.begin(), key.end(), L'-', L'+');
+  const size_t plus = key.find_last_of(L'+');
+  if (plus != std::wstring::npos) key = Trim(key.substr(plus + 1));
+  return IsValidKeyName(key) ? key : fallback;
 }
 
 std::wstring NormalizeHotkeyText(const std::wstring& text,
@@ -288,7 +616,7 @@ std::wstring NormalizeHotkeyText(const std::wstring& text,
         ctrl = true;
       } else if (token == L"SHIFT") {
         shift = true;
-      } else if (IsValidHotkeyKey(token)) {
+      } else if (IsValidKeyName(token)) {
         key = token;
       }
     }
@@ -460,11 +788,13 @@ std::wstring CategoryLabel(const CategoryControl& category) {
   wchar_t buffer[256]{};
   const auto it = g_category_counts.find(category.key);
   const int count = it == g_category_counts.end() ? 0 : it->second;
-  swprintf_s(buffer, L"%s  (%d)", category.label, count);
+  const std::wstring label = CategoryDisplay(category.key);
+  swprintf_s(buffer, L"%s  (%d)", label.c_str(), count);
   return buffer;
 }
 
 std::wstring CurrentLanguageItemName(const ItemRow& item) {
+  if (IsEnglishUi() && !item.english_name.empty()) return item.english_name;
   if (!item.localized_name.empty()) return item.localized_name;
   if (!item.english_name.empty()) return item.english_name;
   if (!item.internal_name.empty()) return item.internal_name;
@@ -494,6 +824,8 @@ void EnsureIniDefaults() {
   WritePrivateProfileStringW(L"General", L"ToggleHotkey", L"F9",
                              g_ini_path.c_str());
   WritePrivateProfileStringW(L"General", L"ConfigHotkey", L"F10",
+                             g_ini_path.c_str());
+  WritePrivateProfileStringW(L"General", L"Language", L"Auto",
                              g_ini_path.c_str());
   WritePrivateProfileStringW(L"General", L"StrictVersionCheck", L"0",
                              g_ini_path.c_str());
@@ -570,23 +902,53 @@ void RefreshItemList() {
   SendMessageW(list, WM_SETREDRAW, TRUE, 0);
   InvalidateRect(list, nullptr, TRUE);
 
-  std::wstring status = L"\u7269\u54c1\u8868 ";
+  std::wstring status = std::wstring(UiText(TextId::kItemTable)) + L" ";
   status += std::to_wstring(g_items.size());
-  status += L" \u6761\u3002";
+  status += UiText(TextId::kStatusRows);
   if (selected_category.empty()) {
-    status += L"\u8bf7\u5728\u5de6\u4fa7\u9009\u62e9\u4e00\u4e2a\u7c7b\u522b\u67e5\u770b\u7269\u54c1\u3002";
+    status += UiText(TextId::kStatusChooseCategory);
   } else {
-    status += L"\u5f53\u524d\u7c7b\u522b ";
+    status += UiText(TextId::kStatusCurrentCategory);
     status += CategoryDisplay(selected_category);
-    status += L"\uff0c\u663e\u793a ";
+    status += UiText(TextId::kStatusShown);
     status += std::to_wstring(shown);
-    status += L" \u6761\u3002";
+    status += UiText(TextId::kStatusRows);
   }
   SetStatus(status);
 }
 
+void ApplyLanguageToUi() {
+  if (!g_hwnd) return;
+  SetWindowTextW(g_hwnd, UiText(TextId::kWindowTitle));
+  SetText(IDC_LABEL_TITLE, UiText(TextId::kTitle));
+  SetText(IDC_ENABLED, UiText(TextId::kEnabled));
+  SetText(IDC_GROUND, UiText(TextId::kGround));
+  SetText(IDC_CORPSE, UiText(TextId::kCorpse));
+  SetText(IDC_FILTER, UiText(TextId::kFilter));
+  SetText(IDC_FOREGROUND, UiText(TextId::kForeground));
+  SetText(IDC_DEBUG, UiText(TextId::kDebug));
+  SetText(IDC_LABEL_INTERACT_KEY, UiText(TextId::kInteractKey));
+  SetText(IDC_LABEL_INTERVAL, UiText(TextId::kInterval));
+  SetText(IDC_LABEL_TOGGLE_HOTKEY, UiText(TextId::kToggleHotkey));
+  SetText(IDC_LABEL_CONFIG_HOTKEY, UiText(TextId::kConfigHotkey));
+  SetText(IDC_LABEL_LANGUAGE, UiText(TextId::kLanguage));
+  SetText(IDC_LABEL_CATEGORY, UiText(TextId::kCategory));
+  SetText(IDC_LABEL_ITEMS, UiText(TextId::kItems));
+  SetText(IDC_LABEL_SEARCH, UiText(TextId::kSearch));
+  SetText(IDC_CLEAR_SEARCH, UiText(TextId::kClear));
+  SetText(IDC_SAVE, UiText(TextId::kSave));
+  SetText(IDC_RELOAD, UiText(TextId::kReload));
+  SetText(IDC_OPEN_LOG, UiText(TextId::kLog));
+  SetText(IDC_OPEN_ITEMS, UiText(TextId::kItemTable));
+  FillLanguageCombo();
+  RefreshCategoryList();
+  RefreshItemList();
+  InvalidateRect(g_hwnd, nullptr, TRUE);
+}
+
 void LoadConfigToUi() {
   EnsureIniDefaults();
+  LoadLanguageSetting();
   LoadItems();
 
   SetCheck(IDC_ENABLED, ReadIniInt(L"General", L"Enabled", 1) != 0);
@@ -595,7 +957,10 @@ void LoadConfigToUi() {
   SetCheck(IDC_GROUND, ReadIniInt(L"Features", L"GroundLoot", 1) != 0);
   SetCheck(IDC_CORPSE, ReadIniInt(L"Features", L"CorpseLoot", 1) != 0);
   SetCheck(IDC_FILTER, ReadIniInt(L"ItemFilter", L"Enabled", 1) != 0);
-  SetText(IDC_KEY_EDIT, ReadIniString(L"General", L"InteractKey", L"E"));
+  SetText(IDC_KEY_EDIT,
+          NormalizeInteractKeyText(ReadIniString(L"General", L"InteractKey",
+                                                 L"E"),
+                                   L"E"));
   SetText(IDC_INTERVAL_EDIT,
           ReadIniString(L"General", L"TriggerIntervalMs", L"650"));
   SetText(IDC_TOGGLE_HOTKEY_EDIT,
@@ -615,6 +980,7 @@ void LoadConfigToUi() {
 
   RefreshCategoryList();
   RefreshItemList();
+  ApplyLanguageToUi();
 }
 
 void SaveUiToConfig() {
@@ -625,11 +991,11 @@ void SaveUiToConfig() {
   WriteIniInt(L"Features", L"CorpseLoot", GetCheck(IDC_CORPSE));
   WriteIniInt(L"ItemFilter", L"Enabled", GetCheck(IDC_FILTER));
 
-  std::wstring key = GetText(IDC_KEY_EDIT);
-  if (key.empty()) key = L"E";
-  key.resize(1);
-  if (key[0] >= L'a' && key[0] <= L'z') key[0] = key[0] - L'a' + L'A';
-  WriteIniString(L"General", L"InteractKey", key);
+  SaveLanguageFromCombo();
+
+  std::wstring interact_key = NormalizeInteractKeyText(GetText(IDC_KEY_EDIT), L"E");
+  WriteIniString(L"General", L"InteractKey", interact_key);
+  SetText(IDC_KEY_EDIT, interact_key);
 
   int interval = _wtoi(GetText(IDC_INTERVAL_EDIT).c_str());
   if (interval < 200) interval = 200;
@@ -661,11 +1027,11 @@ void SaveUiToConfig() {
     WriteIniInt(L"ItemFilter", category.key, g_category_enabled_ui[index]);
   }
 
-  RefreshItemList();
+  ApplyLanguageToUi();
   if (hotkey_conflict) {
-    SetStatus(L"\u5df2\u4fdd\u5b58\u3002\u70ed\u952e\u4e0e\u6e38\u620f\u6309\u952e\u51b2\u7a81\uff0c\u5df2\u81ea\u52a8\u6539\u4e3a F9 / F10\u3002");
+    SetStatus(UiText(TextId::kStatusHotkeyConflict));
   } else {
-    SetStatus(L"\u5df2\u4fdd\u5b58\u3002\u6e38\u620f\u5185\u63d2\u4ef6\u4f1a\u81ea\u52a8\u70ed\u52a0\u8f7d\uff0c\u65e0\u9700\u91cd\u542f\u3002");
+    SetStatus(UiText(TextId::kStatusSaved));
   }
 }
 
@@ -673,7 +1039,7 @@ void SetSelectedItemBlocked(bool blocked) {
   const LRESULT sel = SendMessageW(Ctrl(IDC_ITEM_LIST), LB_GETCURSEL, 0, 0);
   if (sel == LB_ERR || sel < 0 ||
       static_cast<size_t>(sel) >= g_displayed_item_indices.size()) {
-    SetStatus(L"\u8bf7\u5148\u5728\u7269\u54c1\u5217\u8868\u91cc\u9009\u4e2d\u4e00\u4e2a\u7269\u54c1\u3002");
+    SetStatus(UiText(TextId::kStatusSelectItem));
     return;
   }
 
@@ -682,8 +1048,8 @@ void SetSelectedItemBlocked(bool blocked) {
 
   const std::wstring name = CurrentLanguageItemName(item);
   RefreshItemList();
-  std::wstring status = blocked ? L"\u5df2\u8bbe\u4e3a\u4e0d\u62fe\u53d6\uff1a"
-                                : L"\u5df2\u6062\u590d\u62fe\u53d6\uff1a";
+  std::wstring status = blocked ? UiText(TextId::kStatusBlocked)
+                                : UiText(TextId::kStatusRestored);
   status += name;
   SetStatus(status);
 }
@@ -782,9 +1148,9 @@ void ToggleCategoryByIndex(size_t index) {
   InvalidateRect(Ctrl(IDC_CATEGORY_LIST), nullptr, TRUE);
   RefreshItemList();
 
-  std::wstring status = new_enabled ? L"\u5df2\u5f00\u542f\u5206\u7c7b\u62fe\u53d6\u5e76\u6062\u590d\u8be5\u7c7b\u5168\u90e8\u7269\u54c1\uff1a"
-                                    : L"\u5df2\u5173\u95ed\u5206\u7c7b\u62fe\u53d6\u5e76\u53d6\u6d88\u8be5\u7c7b\u5168\u90e8\u7269\u54c1\uff1a";
-  status += kCategories[index].label;
+  std::wstring status = new_enabled ? UiText(TextId::kStatusCategoryEnabled)
+                                    : UiText(TextId::kStatusCategoryDisabled);
+  status += CategoryDisplay(kCategories[index].key);
   SetStatus(status);
 }
 
@@ -807,8 +1173,8 @@ void ToggleItemByDisplayedIndex(size_t displayed_index) {
   }
   InvalidateRect(Ctrl(IDC_ITEM_LIST), nullptr, TRUE);
 
-  std::wstring status = next_checked ? L"\u5df2\u6062\u590d\u62fe\u53d6\uff1a"
-                                    : L"\u5df2\u8bbe\u4e3a\u4e0d\u62fe\u53d6\uff1a";
+  std::wstring status = next_checked ? UiText(TextId::kStatusRestored)
+                                     : UiText(TextId::kStatusBlocked);
   status += CurrentLanguageItemName(item);
   SetStatus(status);
 }
@@ -866,8 +1232,8 @@ HWND AddControl(const wchar_t* cls, const wchar_t* text, DWORD style, int x,
   return hwnd;
 }
 
-void AddLabel(const wchar_t* text, int x, int y, int w, int h) {
-  AddControl(L"STATIC", text, WS_CHILD | WS_VISIBLE, x, y, w, h, 0);
+void AddLabel(const wchar_t* text, int x, int y, int w, int h, int id = 0) {
+  AddControl(L"STATIC", text, WS_CHILD | WS_VISIBLE, x, y, w, h, id);
 }
 
 void CreateUi() {
@@ -875,35 +1241,46 @@ void CreateUi() {
                        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                        CLEARTYPE_QUALITY, DEFAULT_PITCH, L"Microsoft YaHei UI");
 
-  AddLabel(L"Crimson Desert \u81ea\u52a8\u62fe\u53d6", 18, 12, 260, 22);
-  AddControl(L"BUTTON", L"\u542f\u7528", BS_AUTOCHECKBOX | BS_FLAT, 18, 42, 80, 22,
+  AddLabel(UiText(TextId::kTitle), 18, 12, 260, 22, IDC_LABEL_TITLE);
+  AddLabel(UiText(TextId::kLanguage), 396, 12, 72, 22,
+           IDC_LABEL_LANGUAGE);
+  AddControl(L"COMBOBOX", L"",
+             CBS_DROPDOWNLIST | WS_TABSTOP | WS_VSCROLL, 470, 8, 132, 120,
+             IDC_LANGUAGE_COMBO);
+
+  AddControl(L"BUTTON", UiText(TextId::kEnabled), BS_AUTOCHECKBOX | BS_FLAT, 18, 42, 80, 22,
              IDC_ENABLED);
-  AddControl(L"BUTTON", L"\u5730\u9762", BS_AUTOCHECKBOX | BS_FLAT, 112, 42, 80, 22,
+  AddControl(L"BUTTON", UiText(TextId::kGround), BS_AUTOCHECKBOX | BS_FLAT, 112, 42, 80, 22,
              IDC_GROUND);
-  AddControl(L"BUTTON", L"\u6478\u5c38", BS_AUTOCHECKBOX | BS_FLAT, 206, 42, 80, 22,
+  AddControl(L"BUTTON", UiText(TextId::kCorpse), BS_AUTOCHECKBOX | BS_FLAT, 206, 42, 80, 22,
              IDC_CORPSE);
-  AddControl(L"BUTTON", L"\u8fc7\u6ee4", BS_AUTOCHECKBOX | BS_FLAT, 300, 42, 80, 22,
+  AddControl(L"BUTTON", UiText(TextId::kFilter), BS_AUTOCHECKBOX | BS_FLAT, 300, 42, 80, 22,
              IDC_FILTER);
 
-  AddControl(L"BUTTON", L"\u53ea\u5728\u6e38\u620f\u524d\u53f0\u65f6\u89e6\u53d1",
+  AddControl(L"BUTTON", UiText(TextId::kForeground),
              BS_AUTOCHECKBOX | BS_FLAT, 18, 70, 190, 22, IDC_FOREGROUND);
-  AddControl(L"BUTTON", L"\u8c03\u8bd5", BS_AUTOCHECKBOX | BS_FLAT, 222, 70, 90,
+  AddControl(L"BUTTON", UiText(TextId::kDebug), BS_AUTOCHECKBOX | BS_FLAT, 222, 70, 90,
              22, IDC_DEBUG);
 
-  AddLabel(L"\u4ea4\u4e92\u952e", 18, 104, 70, 22);
+  AddLabel(UiText(TextId::kInteractKey), 18, 104, 70, 22,
+           IDC_LABEL_INTERACT_KEY);
   AddControl(L"EDIT", L"E", WS_BORDER | ES_AUTOHSCROLL, 88, 100, 58, 24,
              IDC_KEY_EDIT);
-  AddLabel(L"\u89e6\u53d1\u95f4\u9694", 158, 104, 82, 22);
+  AddLabel(UiText(TextId::kInterval), 158, 104, 82, 22,
+           IDC_LABEL_INTERVAL);
   AddControl(L"EDIT", L"650", WS_BORDER | ES_NUMBER | ES_AUTOHSCROLL, 250, 100,
              70, 24, IDC_INTERVAL_EDIT);
-  AddLabel(L"\u5f00\u5173\u952e", 334, 104, 62, 22);
+  AddLabel(UiText(TextId::kToggleHotkey), 334, 104, 62, 22,
+           IDC_LABEL_TOGGLE_HOTKEY);
   AddControl(L"EDIT", L"F9", WS_BORDER | ES_AUTOHSCROLL, 394, 100, 74, 24,
              IDC_TOGGLE_HOTKEY_EDIT);
-  AddLabel(L"\u9762\u677f\u952e", 480, 104, 58, 22);
+  AddLabel(UiText(TextId::kConfigHotkey), 480, 104, 58, 22,
+           IDC_LABEL_CONFIG_HOTKEY);
   AddControl(L"EDIT", L"F10", WS_BORDER | ES_AUTOHSCROLL, 538, 100, 64, 24,
              IDC_CONFIG_HOTKEY_EDIT);
 
-  AddLabel(L"\u5206\u7c7b", 18, 142, 80, 22);
+  AddLabel(UiText(TextId::kCategory), 18, 142, 80, 22,
+           IDC_LABEL_CATEGORY);
   HWND category_list = AddControl(
       L"LISTBOX", L"",
       WS_BORDER | WS_VSCROLL | LBS_NOTIFY | LBS_OWNERDRAWFIXED | LBS_HASSTRINGS,
@@ -913,11 +1290,11 @@ void CreateUi() {
       SetWindowLongPtrW(category_list, GWLP_WNDPROC,
                         reinterpret_cast<LONG_PTR>(CategoryListProc)));
 
-  AddLabel(L"\u7269\u54c1", 290, 142, 70, 22);
-  AddLabel(L"\u641c\u7d22", 290, 166, 42, 22);
+  AddLabel(UiText(TextId::kItems), 290, 142, 70, 22, IDC_LABEL_ITEMS);
+  AddLabel(UiText(TextId::kSearch), 290, 166, 42, 22, IDC_LABEL_SEARCH);
   AddControl(L"EDIT", L"", WS_BORDER | ES_AUTOHSCROLL, 334, 162, 160, 24,
              IDC_SEARCH_EDIT);
-  AddControl(L"BUTTON", L"\u6e05\u7a7a", BS_OWNERDRAW, 504, 161, 64, 26,
+  AddControl(L"BUTTON", UiText(TextId::kClear), BS_OWNERDRAW, 504, 161, 64, 26,
              IDC_CLEAR_SEARCH);
   HWND item_list = AddControl(
       L"LISTBOX", L"",
@@ -928,13 +1305,13 @@ void CreateUi() {
       SetWindowLongPtrW(item_list, GWLP_WNDPROC,
                         reinterpret_cast<LONG_PTR>(ItemListProc)));
 
-  AddControl(L"BUTTON", L"\u4fdd\u5b58", BS_OWNERDRAW, 18, 536, 110, 32,
+  AddControl(L"BUTTON", UiText(TextId::kSave), BS_OWNERDRAW, 18, 536, 110, 32,
              IDC_SAVE);
-  AddControl(L"BUTTON", L"\u91cd\u8bfb", BS_OWNERDRAW, 144, 536, 110, 32,
+  AddControl(L"BUTTON", UiText(TextId::kReload), BS_OWNERDRAW, 144, 536, 110, 32,
              IDC_RELOAD);
-  AddControl(L"BUTTON", L"\u65e5\u5fd7", BS_OWNERDRAW, 270, 536, 110, 32,
+  AddControl(L"BUTTON", UiText(TextId::kLog), BS_OWNERDRAW, 270, 536, 110, 32,
              IDC_OPEN_LOG);
-  AddControl(L"BUTTON", L"\u7269\u54c1\u8868", BS_OWNERDRAW, 396, 536, 110, 32,
+  AddControl(L"BUTTON", UiText(TextId::kItemTable), BS_OWNERDRAW, 396, 536, 110, 32,
              IDC_OPEN_ITEMS);
 
   AddControl(L"STATIC", L"", WS_BORDER | SS_LEFTNOWORDWRAP, 18, 584, 550, 36, IDC_STATUS);
@@ -1008,6 +1385,12 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       }
       if (LOWORD(wp) == IDC_SEARCH_EDIT && HIWORD(wp) == EN_CHANGE) {
         RefreshItemList();
+        return 0;
+      }
+      if (LOWORD(wp) == IDC_LANGUAGE_COMBO && HIWORD(wp) == CBN_SELCHANGE) {
+        SaveLanguageFromCombo();
+        ApplyLanguageToUi();
+        SetStatus(UiText(TextId::kStatusSaved));
         return 0;
       }
       switch (LOWORD(wp)) {
@@ -1096,6 +1479,8 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show_cmd) {
   g_default_ini_path = g_dir + L"\\crimson_autoloot_defaults.ini";
   g_log_path = g_dir + L"\\crimson_autoloot_cn.log";
   g_items_path = g_dir + L"\\crimson_autoloot_items.tsv";
+  EnsureIniDefaults();
+  LoadLanguageSetting();
   g_bg_brush = CreateSolidBrush(kColorBg);
   g_panel_brush = CreateSolidBrush(kColorPanel);
   g_edit_brush = CreateSolidBrush(kColorEdit);
@@ -1109,7 +1494,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show_cmd) {
   RegisterClassW(&wc);
 
   HWND hwnd = CreateWindowExW(
-      WS_EX_TOPMOST, wc.lpszClassName, L"\u81ea\u52a8\u62fe\u53d6\u4e2d\u6587\u914d\u7f6e",
+      WS_EX_TOPMOST, wc.lpszClassName, UiText(TextId::kWindowTitle),
       WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
       CW_USEDEFAULT, CW_USEDEFAULT, kWindowWidth, kWindowHeight, nullptr,
       nullptr, instance, nullptr);

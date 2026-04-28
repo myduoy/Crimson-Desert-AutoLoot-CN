@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.1.4
+
+- Fixed `InteractKey` changes not working for full key names such as `Space`, `Tab`, `Insert`, `Delete`, arrow keys, and function keys.
+- Stopped the configuration UI from truncating `InteractKey` to the first character.
+- Added automatic Chinese/English configuration UI language detection: Chinese Windows defaults to Chinese, other systems default to English.
+- Added a language selector in the configuration UI with `Auto`, `Chinese`, and `English`.
+- Added English category labels, UI text, status messages, and English item-name display.
+- Added `Language=Auto` to the default configuration.
+- Added regression tests for interact-key parsing and UI language switching.
+
 ## v0.1.3
 
 - Fixed small animals such as geese and hedgehogs being caught by mistake when corpse looting was enabled.

@@ -732,6 +732,8 @@ void EnsureDefaultIni() {
                              g_ini_path.c_str());
   WritePrivateProfileStringW(L"General", L"ConfigHotkey", L"F10",
                              g_ini_path.c_str());
+  WritePrivateProfileStringW(L"General", L"Language", L"Auto",
+                             g_ini_path.c_str());
   WritePrivateProfileStringW(L"General", L"StrictVersionCheck", L"0",
                              g_ini_path.c_str());
   WritePrivateProfileStringW(L"Features", L"GroundLoot", L"1",
@@ -821,16 +823,20 @@ size_t BlockedItemCount() {
   return count;
 }
 
+std::wstring Trim(std::wstring text);
+std::wstring UpperAscii(std::wstring text);
+WORD ParseKeyName(const std::wstring& token);
+
 WORD ReadInteractKey() {
   wchar_t value[32]{};
   ReadIniStringValue(L"General", L"InteractKey", L"E", value,
                      static_cast<DWORD>(sizeof(value) / sizeof(value[0])));
-  for (wchar_t ch : value) {
-    if (ch >= L'a' && ch <= L'z') return static_cast<WORD>(ch - L'a' + L'A');
-    if ((ch >= L'A' && ch <= L'Z') || (ch >= L'0' && ch <= L'9')) {
-      return static_cast<WORD>(ch);
-    }
-  }
+  std::wstring key = UpperAscii(Trim(value));
+  std::replace(key.begin(), key.end(), L'-', L'+');
+  const size_t plus = key.find_last_of(L'+');
+  if (plus != std::wstring::npos) key = Trim(key.substr(plus + 1));
+  const WORD parsed = ParseKeyName(key);
+  if (parsed != 0) return parsed;
   return kDefaultInteractKey;
 }
 
@@ -855,22 +861,36 @@ std::wstring UpperAscii(std::wstring text) {
   return text;
 }
 
-WORD ParseHotkeyKey(const std::wstring& token) {
+WORD ParseKeyName(const std::wstring& token) {
   if (token.size() == 1) {
     const wchar_t ch = token[0];
     if (ch >= L'A' && ch <= L'Z') return static_cast<WORD>(ch);
     if (ch >= L'0' && ch <= L'9') return static_cast<WORD>(ch);
+    if (ch == L'`') return VK_OEM_3;
   }
   if (token.size() >= 2 && token[0] == L'F') {
     const int fn = _wtoi(token.c_str() + 1);
-    if (fn >= 1 && fn <= 12) return static_cast<WORD>(VK_F1 + fn - 1);
+    if (fn >= 1 && fn <= 24) return static_cast<WORD>(VK_F1 + fn - 1);
   }
+  if (token == L"SPACE" || token == L"SPACEBAR") return VK_SPACE;
+  if (token == L"TAB") return VK_TAB;
+  if (token == L"ENTER" || token == L"RETURN") return VK_RETURN;
+  if (token == L"ESC" || token == L"ESCAPE") return VK_ESCAPE;
+  if (token == L"BACKSPACE" || token == L"BKSP") return VK_BACK;
   if (token == L"INSERT" || token == L"INS") return VK_INSERT;
   if (token == L"DELETE" || token == L"DEL") return VK_DELETE;
   if (token == L"HOME") return VK_HOME;
   if (token == L"END") return VK_END;
   if (token == L"PAGEUP" || token == L"PGUP") return VK_PRIOR;
   if (token == L"PAGEDOWN" || token == L"PGDN") return VK_NEXT;
+  if (token == L"UP") return VK_UP;
+  if (token == L"DOWN") return VK_DOWN;
+  if (token == L"LEFT") return VK_LEFT;
+  if (token == L"RIGHT") return VK_RIGHT;
+  if (token == L"CAPS" || token == L"CAPSLOCK") return VK_CAPITAL;
+  if (token == L"SHIFT") return VK_SHIFT;
+  if (token == L"CTRL" || token == L"CONTROL") return VK_CONTROL;
+  if (token == L"ALT" || token == L"MENU") return VK_MENU;
   return 0;
 }
 
@@ -893,7 +913,7 @@ Hotkey ParseHotkeyText(const wchar_t* text, Hotkey fallback) {
       } else if (token == L"SHIFT") {
         parsed.mods |= kHotkeyShift;
       } else {
-        const WORD vk = ParseHotkeyKey(token);
+        const WORD vk = ParseKeyName(token);
         if (vk != 0) parsed.vk = vk;
       }
     }
@@ -1073,6 +1093,24 @@ bool IsCorpseInteraction(uint32_t type, ULONGLONG now) {
   return matched;
 }
 
+bool IsExtendedInputKey(WORD vk) {
+  switch (vk) {
+    case VK_INSERT:
+    case VK_DELETE:
+    case VK_HOME:
+    case VK_END:
+    case VK_PRIOR:
+    case VK_NEXT:
+    case VK_UP:
+    case VK_DOWN:
+    case VK_LEFT:
+    case VK_RIGHT:
+      return true;
+    default:
+      return false;
+  }
+}
+
 void PressInteractKey(DWORD hold_ms) {
   const WORD interact_key =
       static_cast<WORD>(InterlockedCompareExchange(&g_interact_key, 0, 0));
@@ -1080,17 +1118,19 @@ void PressInteractKey(DWORD hold_ms) {
       static_cast<WORD>(MapVirtualKeyW(interact_key, MAPVK_VK_TO_VSC));
   if (scan_code == 0) return;
 
+  const DWORD extended_flag =
+      IsExtendedInputKey(interact_key) ? KEYEVENTF_EXTENDEDKEY : 0;
   INPUT inputs[2]{};
   inputs[0].type = INPUT_KEYBOARD;
   inputs[0].ki.wScan = scan_code;
-  inputs[0].ki.dwFlags = KEYEVENTF_SCANCODE;
+  inputs[0].ki.dwFlags = KEYEVENTF_SCANCODE | extended_flag;
   SendInput(1, &inputs[0], sizeof(INPUT));
 
   Sleep(hold_ms);
 
   inputs[1].type = INPUT_KEYBOARD;
   inputs[1].ki.wScan = scan_code;
-  inputs[1].ki.dwFlags = KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP;
+  inputs[1].ki.dwFlags = KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP | extended_flag;
   SendInput(1, &inputs[1], sizeof(INPUT));
 }
 
