@@ -23,6 +23,18 @@ This is an unofficial community plugin. It does not include game files and is no
 - Added regression coverage for animal/catch interaction safety guards.
 - Updated release binaries.
 
+## v0.1.2 Fixes
+
+- Fixed human NPC corpse looting on current game builds.
+- Fixed corpse prompts that are reported by the game as ground interaction `type 1`.
+- Changed corpse interaction input from a short tap to a held interact key so search/loot corpse prompts complete reliably.
+- Added current-client corpse interaction candidates `38`, `39`, and `168`.
+- Added a safe fallback for ambiguous `type 1` corpse prompts without bypassing filters for confirmed ground items.
+- Improved filtering so unknown numeric object matches are not treated as real item IDs.
+- Added generic equipment prompt classification for faction-prefixed item names such as plate helmets, helmets, armor, gloves, boots, cloaks, shields, spears, swords, and bows.
+- Added regression tests for interaction type handling, corpse key hold behavior, and generic equipment category matching.
+- Updated release binaries.
+
 ## Current Limitations
 
 The public build does not include "pause auto-loot in combat". Experimental combat-state, weapon-state, and UI scanning code was removed for stability.
