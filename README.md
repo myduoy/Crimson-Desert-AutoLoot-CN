@@ -1,52 +1,66 @@
 # Crimson Desert AutoLoot CN
 
-Crimson Desert AutoLoot CN 是一个 Windows x64 ASI 插件，用于给 Crimson Desert 添加自动拾取、自动摸尸和中文配置界面。
+Crimson Desert AutoLoot CN is a Windows x64 ASI plugin for Crimson Desert. It adds automatic ground loot, automatic corpse looting, item filters, hotkeys, and a Chinese configuration UI.
 
-> 这是非官方社区插件。项目不包含游戏本体文件，不隶属于 Pearl Abyss 或 Crimson Desert 官方。
+This is an unofficial community plugin. It does not include game files and is not affiliated with Pearl Abyss or the official Crimson Desert team.
 
-## 功能
+## Features
 
-- 自动地面拾取：识别可拾取物品提示后自动发送交互键。
-- 自动摸尸：识别尸体/区域搜刮交互后自动发送交互键。
-- 物品过滤：按物品分类控制是否拾取，并支持单个物品加入不拾取列表。
-- 中文配置界面：可视化开关功能、设置热键、搜索物品、打开日志和物品表。
-- 当前系统语言物品名：物品列表优先显示当前语言名称，未翻译时回退到英文或内部名。
-- 热加载配置：配置文件保存后，游戏内插件会自动重新读取。
-- 低卡顿过滤：地面物品的重文本解析在插件 worker 线程中处理，避免阻塞游戏 hook 回调。
+- Automatic ground loot by sending the configured interact key when a loot prompt is detected.
+- Automatic corpse looting for search/loot corpse prompts.
+- Category-based item filtering and per-item block list.
+- Chinese configuration UI for feature toggles, hotkeys, item search, logs, and item table browsing.
+- Localized item names in the item table, with fallback to English or internal names when a translation is missing.
+- Hot-reloaded configuration when the INI file changes.
+- Lower-stutter filtering path: expensive ground-item text resolution runs on the plugin worker thread instead of the game hook callback.
 
-## 当前版本说明
+## v0.1.2 Fixes
 
-当前公开版本不包含“战斗中暂停自动拾取”功能。之前用于探测战斗状态、武器状态、UI 提示扫描的代码已经移除，避免误判和卡顿。
+- Fixed human NPC corpse looting on current game builds.
+- Fixed corpse prompts that are reported by the game as ground interaction `type 1`.
+- Changed corpse interaction input from a short tap to a held interact key so search/loot corpse prompts complete reliably.
+- Added current-client corpse interaction candidates `38`, `39`, and `168`.
+- Added a safe fallback for ambiguous `type 1` corpse prompts without bypassing filters for confirmed ground items.
+- Improved filtering so unknown numeric object matches are not treated as real item IDs.
+- Added generic equipment prompt classification for faction-prefixed item names such as plate helmets, helmets, armor, gloves, boots, cloaks, shields, spears, swords, and bows.
+- Added regression tests for interaction type handling, corpse key hold behavior, and generic equipment category matching.
+- Updated release binaries.
 
-`v0.1.1` 起默认关闭调试日志，并减少同一地面物品的重复文本扫描。如果需要排查问题，可以在 `crimson_autoloot_cn.ini` 中把 `DebugLog=1` 打开。
+## Current Limitations
 
-## 文件说明
+The public build does not include "pause auto-loot in combat". Experimental combat-state, weapon-state, and UI scanning code was removed for stability.
 
-- `release/crimson_autoloot_cn.asi`：游戏内 ASI 插件。
-- `release/crimson_autoloot_config.exe`：中文配置界面。
-- `src/main.cpp`：ASI 插件源码。
-- `src/config_ui.cpp`：配置界面源码。
-- `crimson_autoloot_defaults.ini`：默认配置。
-- `crimson_autoloot_items.tsv`：物品分类和名称表。
-- `tools/generate_items.py`：物品表生成脚本。
-- `build.ps1`：本地编译脚本。
+Debug logging is disabled by default. Set `DebugLog=1` in `crimson_autoloot_cn.ini` only when troubleshooting.
 
-## 安装
+## Files
 
-1. 关闭游戏。
-2. 将 `release/crimson_autoloot_cn.asi` 复制到游戏目录：
+- `release/crimson_autoloot_cn.asi`: in-game ASI plugin.
+- `release/crimson_autoloot_config.exe`: configuration UI.
+- `src/main.cpp`: ASI plugin source.
+- `src/config_ui.cpp`: configuration UI source.
+- `crimson_autoloot_defaults.ini`: default configuration.
+- `crimson_autoloot_items.tsv`: item category and name table.
+- `tools/generate_items.py`: item table generation script.
+- `tools/test_interaction_types.py`: regression tests for interaction and filtering behavior.
+- `build.ps1`: local build script.
+- `package.ps1`: release zip packaging script.
+
+## Install
+
+1. Close the game.
+2. Copy `release/crimson_autoloot_cn.asi` to:
 
    ```text
    <Crimson Desert>\bin64\crimson_autoloot_cn.asi
    ```
 
-3. 在同目录创建或复制支持目录：
+3. Create the support directory:
 
    ```text
    <Crimson Desert>\bin64\crimson_autoloot_cn\
    ```
 
-4. 将以下文件放入支持目录：
+4. Copy these files into the support directory:
 
    ```text
    crimson_autoloot_config.exe
@@ -54,68 +68,85 @@ Crimson Desert AutoLoot CN 是一个 Windows x64 ASI 插件，用于给 Crimson 
    crimson_autoloot_items.tsv
    ```
 
-5. 启动游戏。默认热键：
+5. Start the game. Default keys:
 
    ```text
-   F9  开关自动拾取
-   F10 打开/关闭配置面板
-   E   游戏交互键
+   F9  Toggle auto-loot
+   F10 Open/close config panel
+   E   Game interact key
    ```
 
-## 配置
+## Configuration
 
-运行 `crimson_autoloot_config.exe` 或在游戏内按 `F10` 打开配置面板。
+Run `crimson_autoloot_config.exe`, or press `F10` in game to open the config panel.
 
-主要配置：
+Main options:
 
-- `启用`：总开关。
-- `地面`：是否自动拾取地面物品。
-- `摸尸`：是否自动摸尸/搜刮。
-- `过滤`：是否启用物品过滤。
-- `只在游戏前台时触发`：游戏窗口不在前台时不发送按键。
-- `交互键`：默认 `E`，应与游戏内“基本互动”按键一致。
-- `开关键`：默认 `F9`。
-- `面板键`：默认 `F10`。
+- `Enable`: master switch.
+- `Ground`: automatic ground item looting.
+- `Corpse`: automatic corpse looting/searching.
+- `Filter`: item filter switch.
+- `Foreground only`: only send keys when the game window is focused.
+- `Interact key`: defaults to `E`; should match the game's basic interaction key.
+- `Toggle key`: defaults to `F9`.
+- `Panel key`: defaults to `F10`.
 
-物品过滤逻辑：
+Filter behavior:
 
-- 左侧分类勾选表示该分类允许拾取。
-- 取消分类勾选会把该分类下物品全部设为不拾取。
-- 在右侧物品列表取消单个物品勾选，会把该物品加入不拾取列表。
-- 搜索框只显示当前分类下匹配名称的物品。
+- A checked category means items in that category are allowed.
+- Unchecking a category blocks all items in that category.
+- Unchecking a single item adds that item to the block list.
+- The search box filters items within the current category.
+- If a game prompt only reveals a generic equipment category and not a specific item key, the plugin applies the category switch.
 
-## 从源码编译
+## Build From Source
 
-需要 Visual Studio Build Tools C++ 工具链。
+Requires Visual Studio Build Tools with the C++ toolchain.
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\build.ps1
 ```
 
-编译结果输出到：
+Build outputs:
 
 ```text
 build\crimson_autoloot_cn.asi
 build\crimson_autoloot_config.exe
 ```
 
-## 日志
+## Tests
 
-运行时日志位于：
+```powershell
+python .\tools\test_interaction_types.py
+```
+
+## Package
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\package.ps1
+```
+
+Output:
+
+```text
+dist\
+```
+
+## Logs
+
+Runtime log path:
 
 ```text
 <Crimson Desert>\bin64\crimson_autoloot_cn\crimson_autoloot_cn.log
 ```
 
-默认 `DebugLog=0`，不会持续写入运行日志。排查问题时再临时改为 `DebugLog=1`。
+If auto-loot does not work, check:
 
-如果自动拾取不生效，先确认：
+- The game interact key still matches the plugin interact key.
+- The plugin is enabled.
+- The item category or individual item is not filtered.
+- The game window is focused when `Foreground only` is enabled.
 
-- 游戏交互键是否仍为 `E`。
-- 插件是否启用。
-- 物品分类或单个物品是否被过滤。
-- 游戏窗口是否在前台。
+## License
 
-## 许可证
-
-本项目以 MIT License 开源。
+MIT License.

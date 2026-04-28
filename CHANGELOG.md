@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.1.2
+
+- Fixed human NPC corpse looting on current game builds where corpse prompts can be reported as ground interaction `type 1`.
+- Changed corpse interaction input from a short tap to a held interact key so "search/loot corpse" prompts complete reliably.
+- Added current-client corpse interaction candidates `38`, `39`, and `168` while keeping the original corpse/gather type.
+- Added a safe fallback for ambiguous `type 1` corpse prompts without bypassing item filters for confirmed ground items.
+- Improved ground item filtering so unknown numeric object matches are not treated as real item IDs.
+- Added generic equipment prompt classification for names such as faction-prefix plate helmets, shields, spears, swords, bows, armor, gloves, boots, and cloaks.
+- Added regression tests for interaction type handling, corpse key hold behavior, and generic equipment category matching.
+- Updated release binaries.
+
 ## v0.1.1
 
 - Improved item filtering reliability by requiring confirmed item-name resolution when filters are enabled.

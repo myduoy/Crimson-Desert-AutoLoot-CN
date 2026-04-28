@@ -43,10 +43,13 @@ constexpr size_t kPromptTextBPatchLen = 0x12;
 constexpr uint32_t kGroundLootType = 1;
 constexpr uint32_t kGroundLootVariantType = 4;
 constexpr uint32_t kGroundLootRelicType = 19;
-constexpr uint32_t kCorpseLootType = 168;
+constexpr uint32_t kCorpseLootTypes[] = {15, 38, 39, 168};
 constexpr WORD kDefaultInteractKey = 'E';
+constexpr DWORD kGroundInteractTapMs = 55;
+constexpr DWORD kCorpseInteractHoldMs = 900;
 constexpr ULONGLONG kResolveCacheTtlMs = 1800;
 constexpr ULONGLONG kPendingInputMaxAgeMs = 700;
+constexpr ULONGLONG kPromptActionMatchTtlMs = 900;
 enum HotkeyMod : uint8_t {
   kHotkeyAlt = 1 << 0,
   kHotkeyCtrl = 1 << 1,
@@ -209,9 +212,15 @@ volatile LONG g_last_ground_item_unique_keys = 0;
 volatile LONG g_last_ground_item_confirmed = 0;
 volatile LONG g_last_ground_item_text_match = 0;
 volatile LONG g_last_interaction_type = 0;
+volatile LONG g_recent_corpse_prompt_action = 0;
+volatile LONG g_last_corpse_fallback_type = 0;
 volatile LONG g_last_prompt_item_key = 0;
 volatile LONG g_last_prompt_queue_key = 0;
+volatile LONG g_last_corpse_prompt_source = 0;
 volatile LONG64 g_last_prompt_queue_tick = 0;
+volatile LONG64 g_recent_corpse_prompt_tick = 0;
+volatile LONG64 g_last_corpse_prompt_entry = 0;
+volatile LONG64 g_last_corpse_prompt_owner = 0;
 volatile LONG g_last_candidate_string_item_key = 0;
 volatile LONG64 g_last_interaction_tick = 0;
 volatile LONG64 g_last_corpse_target = 0;
@@ -971,7 +980,8 @@ bool IsItemCategoryAllowed(uint8_t category);
 bool IsItemBlocked(uint32_t key);
 
 bool IsReliableFilteredGroundItem(const ItemResolveResult& item) {
-  return item.resolved && item.key != 0 && item.text_match;
+  return item.resolved && item.text_match &&
+         (item.key != 0 || item.category != kCatUnknown);
 }
 
 bool IsGroundLootType(uint32_t type) {
@@ -979,7 +989,76 @@ bool IsGroundLootType(uint32_t type) {
          type == kGroundLootRelicType;
 }
 
-void PressInteractKey() {
+bool ShouldFallbackGroundTypeToCorpse(uint32_t type,
+                                      const ItemResolveResult& item) {
+  if (type != kGroundLootType) return false;
+  if (InterlockedCompareExchange(&g_corpse_enabled, 0, 0) == 0) return false;
+
+  // Current builds can report human corpse prompts as type 1. Real ground
+  // items should resolve through prompt text; non-text multi-candidate matches
+  // are object-memory false positives and are safer to treat as corpse prompts.
+  return item.resolved && item.key != 0 && !item.text_match &&
+         !IsReliableFilteredGroundItem(item) &&
+         (item.ambiguous || item.unique_keys > 1);
+}
+
+bool IsCorpseLootType(uint32_t type) {
+  for (uint32_t corpse_type : kCorpseLootTypes) {
+    if (type == corpse_type) return true;
+  }
+  return false;
+}
+
+bool IsUnsafePromptActionFallbackType(uint32_t type) {
+  switch (type) {
+    case 1:
+    case 4:
+    case 19:
+    case 24:
+    case 50:
+    case 160:
+    case 161:
+    case 266:
+    case 29:
+    case 34:
+    case 35:
+    case 36:
+    case 93:
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool HasRecentCorpsePromptAction(ULONGLONG now) {
+  if (InterlockedCompareExchange(&g_recent_corpse_prompt_action, 0, 0) == 0) {
+    return false;
+  }
+  const ULONGLONG tick = static_cast<ULONGLONG>(
+      InterlockedCompareExchange64(&g_recent_corpse_prompt_tick, 0, 0));
+  return tick != 0 && now >= tick && now - tick <= kPromptActionMatchTtlMs;
+}
+
+bool IsCorpseInteraction(uint32_t type, ULONGLONG now) {
+  if (IsCorpseLootType(type)) return true;
+  if (IsUnsafePromptActionFallbackType(type)) return false;
+  const bool matched = HasRecentCorpsePromptAction(now);
+  if (matched) {
+    const LONG previous = InterlockedExchange(&g_last_corpse_fallback_type,
+                                              static_cast<LONG>(type));
+    if (previous != static_cast<LONG>(type)) {
+      Log("corpse prompt fallback matched: type=%lu prompt_source=%ld prompt_entry=%p prompt_owner=%p",
+          type, InterlockedCompareExchange(&g_last_corpse_prompt_source, 0, 0),
+          reinterpret_cast<void*>(
+              InterlockedCompareExchange64(&g_last_corpse_prompt_entry, 0, 0)),
+          reinterpret_cast<void*>(
+              InterlockedCompareExchange64(&g_last_corpse_prompt_owner, 0, 0)));
+    }
+  }
+  return matched;
+}
+
+void PressInteractKey(DWORD hold_ms) {
   const WORD interact_key =
       static_cast<WORD>(InterlockedCompareExchange(&g_interact_key, 0, 0));
   const WORD scan_code =
@@ -992,7 +1071,7 @@ void PressInteractKey() {
   inputs[0].ki.dwFlags = KEYEVENTF_SCANCODE;
   SendInput(1, &inputs[0], sizeof(INPUT));
 
-  Sleep(55);
+  Sleep(hold_ms);
 
   inputs[1].type = INPUT_KEYBOARD;
   inputs[1].ki.wScan = scan_code;
@@ -1017,6 +1096,32 @@ std::wstring TrimWideCopy(const std::wstring& text) {
   return text.substr(begin, end - begin);
 }
 
+bool IsCorpsePromptActionText(const std::wstring& raw) {
+  const std::wstring text = TrimWideCopy(raw);
+  if (text.empty()) return false;
+  if (text == L"\x7FFB\x627E" || text == L"\x641C\x522E" ||
+      text == L"\x641C\x7D22") {
+    return true;
+  }
+
+  std::wstring lower = text;
+  std::transform(lower.begin(), lower.end(), lower.begin(),
+                 [](wchar_t ch) { return static_cast<wchar_t>(towlower(ch)); });
+  return lower == L"loot" || lower == L"search" || lower == L"rummage" ||
+         lower == L"loot body" || lower == L"search body";
+}
+
+void StoreCorpsePromptAction(uintptr_t text_ptr, uintptr_t entry,
+                             uintptr_t owner, uint8_t source) {
+  InterlockedExchange(&g_recent_corpse_prompt_action, 1);
+  InterlockedExchange64(&g_recent_corpse_prompt_tick,
+                        static_cast<LONG64>(GetTickCount64()));
+  InterlockedExchange64(&g_last_corpse_prompt_entry,
+                        static_cast<LONG64>(entry ? entry : text_ptr));
+  InterlockedExchange64(&g_last_corpse_prompt_owner, static_cast<LONG64>(owner));
+  InterlockedExchange(&g_last_corpse_prompt_source, source);
+}
+
 void FillTextMatchResult(const ItemNameRef& ref, uint8_t source,
                          uint32_t offset, ItemResolveResult* result) {
   result->resolved = true;
@@ -1028,6 +1133,53 @@ void FillTextMatchResult(const ItemNameRef& ref, uint8_t source,
   result->source = source;
   result->unique_keys = 1;
   result->score = 1000 + static_cast<int>(ref.name.size());
+}
+
+void FillCategoryTextMatchResult(uint8_t category, uint8_t source,
+                                 uint32_t offset,
+                                 ItemResolveResult* result) {
+  result->resolved = true;
+  result->ambiguous = false;
+  result->text_match = true;
+  result->key = 0;
+  result->category = category;
+  result->offset = offset;
+  result->source = source;
+  result->unique_keys = 0;
+  result->score = 600;
+}
+
+bool TextContainsAny(const std::wstring& text,
+                     std::initializer_list<const wchar_t*> needles) {
+  for (const wchar_t* needle : needles) {
+    if (needle && *needle && text.find(needle) != std::wstring::npos) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool TryMatchGenericItemCategoryText(const std::wstring& text, uint8_t source,
+                                     uint32_t offset,
+                                     ItemResolveResult* result) {
+  if (!result) return false;
+  if (TextContainsAny(text, {L"\x677F\x91D1\x5934\x76D4", L"\x5934\x76D4",
+                            L"\x76D4\x7532", L"\x624B\x5957",
+                            L"\x978B\x5B50", L"\x62AB\x98CE",
+                            L"Plate Helm", L"Helmet", L"Helm", L"Armor",
+                            L"Gloves", L"Boots", L"Cloak"})) {
+    FillCategoryTextMatchResult(kCatArmor, source, offset, result);
+    return true;
+  }
+  if (TextContainsAny(text, {L"\x76FE\x724C", L"\x957F\x67AA",
+                            L"\x77ED\x5251", L"\x53CC\x624B\x5251",
+                            L"\x5355\x624B\x5251", L"\x5F13\x7BAD",
+                            L"\x5F29", L"\x5251", L"\x67AA", L"Shield",
+                            L"Spear", L"Sword", L"Bow", L"Crossbow"})) {
+    FillCategoryTextMatchResult(kCatWeapon, source, offset, result);
+    return true;
+  }
+  return false;
 }
 
 bool MatchItemNameText(const std::wstring& raw, uint8_t source,
@@ -1052,6 +1204,9 @@ bool MatchItemNameText(const std::wstring& raw, uint8_t source,
       FillTextMatchResult(ref, source, offset, result);
       return true;
     }
+  }
+  if (TryMatchGenericItemCategoryText(text, source, offset, result)) {
+    return true;
   }
   return false;
 }
@@ -1335,10 +1490,8 @@ bool SafeReadBytes(uintptr_t address, void* buffer, size_t bytes,
   }
 }
 
-bool ReadMatchUtf8TextPointer(uintptr_t text_ptr, uint8_t source,
-                              uint32_t offset,
-                              ItemResolveResult* result) {
-  if (!text_ptr || !result) return false;
+bool ReadUtf8TextPointer(uintptr_t text_ptr, std::wstring* text) {
+  if (!text_ptr || !text) return false;
   constexpr size_t kMaxBytes = 256;
   std::array<char, kMaxBytes + 1> buffer{};
   size_t bytes = kMaxBytes;
@@ -1355,15 +1508,12 @@ bool ReadMatchUtf8TextPointer(uintptr_t text_ptr, uint8_t source,
   if (len < 2 || len > 220) return false;
   buffer[len] = 0;
 
-  const std::wstring text = Utf8ToWide(buffer.data());
-  if (text.empty()) return false;
-  return MatchItemNameText(text, source, offset, result);
+  *text = Utf8ToWide(buffer.data());
+  return !text->empty();
 }
 
-bool ReadMatchUtf16TextPointer(uintptr_t text_ptr, uint8_t source,
-                               uint32_t offset,
-                               ItemResolveResult* result) {
-  if (!text_ptr || !result) return false;
+bool ReadUtf16TextPointer(uintptr_t text_ptr, std::wstring* text) {
+  if (!text_ptr || !text) return false;
   constexpr size_t kMaxChars = 128;
   std::array<wchar_t, kMaxChars + 1> buffer{};
   size_t chars = kMaxChars;
@@ -1382,7 +1532,31 @@ bool ReadMatchUtf16TextPointer(uintptr_t text_ptr, uint8_t source,
   }
   if (len < 2 || len > 120) return false;
 
-  const std::wstring text(buffer.data(), len);
+  *text = std::wstring(buffer.data(), len);
+  return true;
+}
+
+bool ReadPromptTextPointer(uintptr_t text_ptr, std::wstring* text) {
+  if (ReadUtf8TextPointer(text_ptr, text)) return true;
+  if (ReadUtf16TextPointer(text_ptr, text)) return true;
+  return false;
+}
+
+bool ReadMatchUtf8TextPointer(uintptr_t text_ptr, uint8_t source,
+                              uint32_t offset,
+                              ItemResolveResult* result) {
+  if (!result) return false;
+  std::wstring text;
+  if (!ReadUtf8TextPointer(text_ptr, &text)) return false;
+  return MatchItemNameText(text, source, offset, result);
+}
+
+bool ReadMatchUtf16TextPointer(uintptr_t text_ptr, uint8_t source,
+                               uint32_t offset,
+                               ItemResolveResult* result) {
+  if (!result) return false;
+  std::wstring text;
+  if (!ReadUtf16TextPointer(text_ptr, &text)) return false;
   return MatchItemNameText(text, source, offset, result);
 }
 
@@ -1395,6 +1569,19 @@ bool MatchStringPointer(uintptr_t text_ptr, uint8_t source, uint32_t offset,
 
 void StorePromptTextItem(uintptr_t text_ptr, uintptr_t entry, uintptr_t panel,
                          uintptr_t owner, uint8_t source) {
+  std::wstring text;
+  if (ReadPromptTextPointer(text_ptr, &text)) {
+    if (IsCorpsePromptActionText(text)) {
+      StoreCorpsePromptAction(text_ptr, entry, owner, source);
+    }
+
+    ItemResolveResult direct_item{};
+    if (MatchItemNameText(text, source, 0, &direct_item)) {
+      StorePromptItem(direct_item, text_ptr, entry, panel, owner);
+      return;
+    }
+  }
+
   ItemResolveResult item{};
   if (!MatchStringPointer(text_ptr, source, 0, &item)) return;
   StorePromptItem(item, text_ptr, entry, panel, owner);
@@ -1773,6 +1960,8 @@ void ResetLootRuntimeState(const char* reason) {
   InterlockedExchange(&g_pending_corpse, 0);
   InterlockedExchange64(&g_pending_ground_tick, 0);
   InterlockedExchange64(&g_pending_corpse_tick, 0);
+  InterlockedExchange(&g_recent_corpse_prompt_action, 0);
+  InterlockedExchange64(&g_recent_corpse_prompt_tick, 0);
   InterlockedExchange(&g_last_prompt_item_key, 0);
   InterlockedExchange(&g_last_prompt_queue_key, 0);
   InterlockedExchange64(&g_last_prompt_queue_tick, 0);
@@ -1830,6 +2019,8 @@ bool ConfirmAllowedGroundItem(uint32_t type, uintptr_t target,
 extern "C" __declspec(noinline) void __fastcall
 RecordInteraction(uint32_t type, uintptr_t target, uintptr_t candidate,
                   uintptr_t context) {
+  const ULONGLONG now = GetTickCount64();
+  const bool corpse_interaction = IsCorpseInteraction(type, now);
   InterlockedExchange(&g_last_interaction_type, static_cast<LONG>(type));
   InterlockedExchange64(&g_last_interaction_context,
                         static_cast<LONG64>(context));
@@ -1837,7 +2028,7 @@ RecordInteraction(uint32_t type, uintptr_t target, uintptr_t candidate,
     InterlockedExchange64(&g_last_ground_target, static_cast<LONG64>(target));
     InterlockedExchange64(&g_last_ground_candidate,
                           static_cast<LONG64>(candidate));
-  } else if (type == kCorpseLootType) {
+  } else if (corpse_interaction) {
     InterlockedExchange64(&g_last_corpse_target, static_cast<LONG64>(target));
     InterlockedExchange64(&g_last_corpse_candidate,
                           static_cast<LONG64>(candidate));
@@ -1853,7 +2044,6 @@ RecordInteraction(uint32_t type, uintptr_t target, uintptr_t candidate,
       InterlockedCompareExchange(&g_strict_version, 0, 0) != 0) {
     return;
   }
-  const ULONGLONG now = GetTickCount64();
   const ULONGLONG last_interaction = static_cast<ULONGLONG>(
       InterlockedExchange64(&g_last_interaction_tick, static_cast<LONG64>(now)));
   if (last_interaction != 0 && now - last_interaction > 8000) {
@@ -1889,7 +2079,7 @@ RecordInteraction(uint32_t type, uintptr_t target, uintptr_t candidate,
     return;
   }
 
-  if (type == kCorpseLootType &&
+  if (corpse_interaction &&
       InterlockedCompareExchange(&g_corpse_enabled, 0, 0) != 0) {
     InterlockedExchange64(&g_last_corpse_target, static_cast<LONG64>(target));
     InterlockedExchange64(&g_last_corpse_candidate,
@@ -2336,8 +2526,8 @@ void LogChangedCounters(std::array<LONG64, 1024>& last_seen,
               InterlockedCompareExchange64(&g_last_ground_target, 0, 0)),
           reinterpret_cast<void*>(
               InterlockedCompareExchange64(&g_last_ground_candidate, 0, 0)));
-    } else if (i == kCorpseLootType) {
-      Log("type %zu corpse seen=%lld trigger=%lld filtered=%lld context=%p target=%p candidate=%p", i,
+    } else if (IsCorpseLootType(static_cast<uint32_t>(i))) {
+      Log("type %zu corpse seen=%lld trigger=%lld filtered=%lld context=%p target=%p candidate=%p prompt_source=%ld prompt_entry=%p prompt_owner=%p", i,
           seen, triggered,
           filtered,
           reinterpret_cast<void*>(
@@ -2345,7 +2535,12 @@ void LogChangedCounters(std::array<LONG64, 1024>& last_seen,
           reinterpret_cast<void*>(
               InterlockedCompareExchange64(&g_last_corpse_target, 0, 0)),
           reinterpret_cast<void*>(
-              InterlockedCompareExchange64(&g_last_corpse_candidate, 0, 0)));
+              InterlockedCompareExchange64(&g_last_corpse_candidate, 0, 0)),
+          InterlockedCompareExchange(&g_last_corpse_prompt_source, 0, 0),
+          reinterpret_cast<void*>(
+              InterlockedCompareExchange64(&g_last_corpse_prompt_entry, 0, 0)),
+          reinterpret_cast<void*>(
+              InterlockedCompareExchange64(&g_last_corpse_prompt_owner, 0, 0)));
     } else {
       Log("type %zu seen=%lld trigger=%lld", i, seen, triggered);
     }
@@ -2485,6 +2680,27 @@ void ProcessGroundResolveRequest() {
   InterlockedExchange(&g_last_ground_item_text_match, item.text_match ? 1 : 0);
 
   if (!allowed || !confirmed) {
+    if (ShouldFallbackGroundTypeToCorpse(request.type, item)) {
+      InterlockedExchange(&g_pending_ground, 0);
+      InterlockedExchange64(&g_pending_ground_tick, 0);
+      ResetGroundAllowConfirm();
+      InterlockedExchange64(&g_last_corpse_target,
+                            static_cast<LONG64>(request.target));
+      InterlockedExchange64(&g_last_corpse_candidate,
+                            static_cast<LONG64>(request.candidate));
+      InterlockedExchange(&g_pending_corpse, 1);
+      InterlockedExchange64(&g_pending_corpse_tick, static_cast<LONG64>(now));
+      if (request.type < g_triggered.size()) {
+        InterlockedIncrement64(&g_triggered[request.type]);
+      }
+      Log("type %lu ground unknown item -> corpse fallback: item=%lu source=%u offset=0x%lX unique=%lu target=%p candidate=%p context=%p",
+          request.type, item.key, static_cast<unsigned>(item.source),
+          item.offset, item.unique_keys, reinterpret_cast<void*>(request.target),
+          reinterpret_cast<void*>(request.candidate),
+          reinterpret_cast<void*>(request.context));
+      return;
+    }
+
     InterlockedExchange(&g_pending_ground, 0);
     InterlockedExchange64(&g_pending_ground_tick, 0);
     if (!allowed) ResetGroundAllowConfirm();
@@ -2543,10 +2759,12 @@ void ProcessPendingInput(ULONGLONG& last_press) {
 
   InterlockedExchange(&g_pending_ground, 0);
   InterlockedExchange(&g_pending_corpse, 0);
-  PressInteractKey();
-  last_press = now;
-  Log("sent interact key: ground=%d corpse=%d", has_ground ? 1 : 0,
-      has_corpse ? 1 : 0);
+  const DWORD hold_ms =
+      has_corpse ? kCorpseInteractHoldMs : kGroundInteractTapMs;
+  PressInteractKey(hold_ms);
+  last_press = GetTickCount64();
+  Log("sent interact key: ground=%d corpse=%d hold_ms=%lu", has_ground ? 1 : 0,
+      has_corpse ? 1 : 0, hold_ms);
 }
 
 DWORD WINAPI WorkerThread(void*) {
