@@ -73,6 +73,14 @@ def test_language_setting_exists_in_defaults_and_ui() -> None:
     assert "ApplyLanguageToUi" in UI
 
 
+def test_config_ui_integer_reads_share_manual_ini_fallback() -> None:
+    body = body_of(UI, "ReadIniInt")
+    assert "GetPrivateProfileIntW" not in body
+    assert "ReadIniString(section, key, L\"\")" in body
+    assert "std::wcstol" in body
+    assert "return fallback" in body
+
+
 def test_ui_item_and_category_text_can_switch_to_english() -> None:
     category_display = body_of(UI, "CategoryDisplay")
     assert "IsEnglishUi()" in category_display
@@ -88,5 +96,6 @@ if __name__ == "__main__":
     test_interact_key_uses_full_key_parser_not_first_character()
     test_config_ui_saves_normalized_interact_key_names()
     test_language_setting_exists_in_defaults_and_ui()
+    test_config_ui_integer_reads_share_manual_ini_fallback()
     test_ui_item_and_category_text_can_switch_to_english()
     print("config language and key tests passed")

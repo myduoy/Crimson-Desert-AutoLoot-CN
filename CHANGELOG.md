@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.5
+
+- Fixed configuration UI integer and checkbox reads for UTF-8 BOM INI files.
+- Prevented the configuration UI from falling back to default checkbox values and rewriting them when WinAPI cannot read the first INI section.
+- Added regression coverage for the shared manual INI fallback path.
+
 ## v0.1.4
 
 - Fixed `InteractKey` changes not working for full key names such as `Space`, `Tab`, `Insert`, `Delete`, arrow keys, and function keys.

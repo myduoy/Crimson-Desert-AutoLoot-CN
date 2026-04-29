@@ -15,6 +15,12 @@ This is an unofficial community plugin. It does not include game files and is no
 - Hot-reloaded configuration when the INI file changes.
 - Lower-stutter filtering path: expensive ground-item text resolution runs on the plugin worker thread instead of the game hook callback.
 
+## v0.1.5 Fixes
+
+- Fixed configuration UI checkbox and integer settings when the INI file is saved as UTF-8 with BOM.
+- Prevented the config window from showing default checkbox states and rewriting them over existing values in that case.
+- Updated release binaries.
+
 ## v0.1.4 Fixes
 
 - Fixed `InteractKey` changes not working for full key names such as `Space`, `Tab`, `Insert`, `Delete`, arrow keys, and function keys.

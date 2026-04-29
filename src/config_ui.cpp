@@ -154,10 +154,6 @@ std::wstring ModuleDirectory() {
   return result;
 }
 
-int ReadIniInt(const wchar_t* section, const wchar_t* key, int fallback) {
-  return GetPrivateProfileIntW(section, key, fallback, g_ini_path.c_str());
-}
-
 std::wstring TrimIniWide(const std::wstring& text) {
   size_t begin = 0;
   size_t end = text.size();
@@ -261,6 +257,14 @@ std::wstring ReadIniString(const wchar_t* section, const wchar_t* key,
   if (ReadIniStringManual(section, key, &manual)) return manual;
   if (fallback && fallback[0]) return fallback;
   return buffer;
+}
+
+int ReadIniInt(const wchar_t* section, const wchar_t* key, int fallback) {
+  const std::wstring value = ReadIniString(section, key, L"");
+  if (value.empty()) return fallback;
+  wchar_t* end = nullptr;
+  const long parsed = std::wcstol(value.c_str(), &end, 0);
+  return end != value.c_str() ? static_cast<int>(parsed) : fallback;
 }
 
 void WriteIniInt(const wchar_t* section, const wchar_t* key, int value) {
