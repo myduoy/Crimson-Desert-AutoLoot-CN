@@ -23,18 +23,18 @@
 
 namespace {
 
-constexpr uint32_t kSupportedBuildTimestamp = 0x69EB11A5;
-constexpr uintptr_t kPromptUpdateEntryRva = 0x00BD0C70;
-constexpr uintptr_t kPromptTextAEntryRva = 0x00BD1377;
-constexpr uintptr_t kPromptTextBEntryRva = 0x00BD13AF;
-constexpr uintptr_t kPromptBranchRva = 0x00BD14E5;
-constexpr uintptr_t kOriginalContinueRva = 0x00BD14FD;
-constexpr uintptr_t kSkipPromptRva = 0x00BD15E0;
-constexpr uintptr_t kPromptTextAReturnRva = 0x00BD139D;
-constexpr uintptr_t kPromptTextBReturnRva = 0x00BD13C1;
-constexpr uintptr_t kPromptTextALiteralRva = 0x04A517D0;
-constexpr uintptr_t kPromptTextACallRva = 0x00AC4DC0;
-constexpr uintptr_t kPromptTextBCallRva = 0x00AC4850;
+constexpr uint32_t kSupportedBuildTimestamp = 0x69F49DC4;
+constexpr uintptr_t kPromptUpdateEntryRva = 0x00B8C6E0;
+constexpr uintptr_t kPromptTextAEntryRva = 0x00B8CDE7;
+constexpr uintptr_t kPromptTextBEntryRva = 0x00B8CE1F;
+constexpr uintptr_t kPromptBranchRva = 0x00B8CF55;
+constexpr uintptr_t kOriginalContinueRva = 0x00B8CF6D;
+constexpr uintptr_t kSkipPromptRva = 0x00B8D050;
+constexpr uintptr_t kPromptTextAReturnRva = 0x00B8CE0D;
+constexpr uintptr_t kPromptTextBReturnRva = 0x00B8CE31;
+constexpr uintptr_t kPromptTextALiteralRva = 0x04A222D8;
+constexpr uintptr_t kPromptTextACallRva = 0x00A83550;
+constexpr uintptr_t kPromptTextBCallRva = 0x00A82F90;
 constexpr size_t kPatchLen = 23;
 constexpr size_t kPromptUpdatePatchLen = 15;
 constexpr size_t kPromptTextAPatchLen = 0x26;
@@ -42,6 +42,7 @@ constexpr size_t kPromptTextBPatchLen = 0x12;
 
 constexpr uint32_t kGroundLootType = 1;
 constexpr uint32_t kGroundLootVariantType = 4;
+constexpr uint32_t kGroundLootCurrentType = 5;
 constexpr uint32_t kGroundLootRelicType = 19;
 constexpr uint32_t kCorpseLootTypes[] = {15, 168};
 constexpr WORD kDefaultInteractKey = 'E';
@@ -1007,7 +1008,7 @@ bool IsReliableFilteredGroundItem(const ItemResolveResult& item) {
 
 bool IsGroundLootType(uint32_t type) {
   return type == kGroundLootType || type == kGroundLootVariantType ||
-         type == kGroundLootRelicType;
+         type == kGroundLootCurrentType || type == kGroundLootRelicType;
 }
 
 bool ShouldFallbackGroundTypeToCorpse(uint32_t type, ULONGLONG now,
@@ -1035,6 +1036,7 @@ bool IsUnsafePromptActionFallbackType(uint32_t type) {
   switch (type) {
     case 1:
     case 4:
+    case 5:
     case 19:
     case 24:
     case 25:
@@ -2360,9 +2362,9 @@ bool InstallPromptTextHooks() {
   const uint8_t expected_a[] = {
       0x41, 0x0F, 0xB6, 0x4D, 0x3A, 0x49, 0x8B, 0x45,
       0x30, 0x4D, 0x8D, 0x86, 0x80, 0x01, 0x00, 0x00,
-      0x88, 0x4C, 0x24, 0x20, 0x4C, 0x8D, 0x0D, 0x3E,
-      0x04, 0xE8, 0x03, 0x48, 0x8B, 0x10, 0x48, 0x8B,
-      0xCF, 0xE8, 0x23, 0x3A, 0xEF, 0xFF};
+      0x88, 0x4C, 0x24, 0x20, 0x4C, 0x8D, 0x0D, 0xD6,
+      0x54, 0xE9, 0x03, 0x48, 0x8B, 0x10, 0x48, 0x8B,
+      0xCF, 0xE8, 0x43, 0x67, 0xEF, 0xFF};
   void* stub_a = nullptr;
   const bool ok_a = InstallAbsJumpHook(
       target_a, expected_a, sizeof(expected_a), BuildPromptTextAStub(),
@@ -2371,7 +2373,7 @@ bool InstallPromptTextHooks() {
   uint8_t* target_b = reinterpret_cast<uint8_t*>(g_game + kPromptTextBEntryRva);
   const uint8_t expected_b[] = {0x49, 0x8B, 0x45, 0x40, 0x41, 0xB0,
                                 0x01, 0x48, 0x8B, 0x10, 0x48, 0x8B,
-                                0xCF, 0xE8, 0x8F, 0x34, 0xEF, 0xFF};
+                                0xCF, 0xE8, 0x5F, 0x61, 0xEF, 0xFF};
   void* stub_b = nullptr;
   const bool ok_b = InstallAbsJumpHook(
       target_b, expected_b, sizeof(expected_b), BuildPromptTextBStub(),

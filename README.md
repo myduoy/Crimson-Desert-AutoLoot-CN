@@ -15,6 +15,14 @@ This is an unofficial community plugin. It does not include game files and is no
 - Hot-reloaded configuration when the INI file changes.
 - Lower-stutter filtering path: expensive ground-item text resolution runs on the plugin worker thread instead of the game hook callback.
 
+## v0.1.6 Fixes
+
+- Updated the prompt text and interaction hook addresses for the May 2, 2026 Crimson Desert game update.
+- Added observed current-client ground loot interaction `type 5`, fixing loot prompts that were seen but never triggered.
+- Added a local regression test that scans the installed game executable and checks the plugin hook constants against the current build.
+- Fixed the hook scanner/test path to convert PE raw file offsets to runtime RVAs before validating addresses.
+- Updated release binaries.
+
 ## v0.1.5 Fixes
 
 - Fixed configuration UI checkbox and integer settings when the INI file is saved as UTF-8 with BOM.
@@ -66,6 +74,7 @@ Debug logging is disabled by default. Set `DebugLog=1` in `crimson_autoloot_cn.i
 - `crimson_autoloot_defaults.ini`: default configuration.
 - `crimson_autoloot_items.tsv`: item category and name table.
 - `tools/generate_items.py`: item table generation script.
+- `tools/test_current_game_hooks.py`: local hook-address regression test against the installed game executable.
 - `tools/test_interaction_types.py`: regression tests for interaction and filtering behavior.
 - `build.ps1`: local build script.
 - `package.ps1`: release zip packaging script.

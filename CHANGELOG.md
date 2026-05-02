@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.1.6
+
+- Updated the prompt text and interaction hook addresses for the May 2, 2026 Crimson Desert game update.
+- Added observed current-client ground loot interaction `type 5`, fixing prompts that were logged as seen but never triggered.
+- Added a local regression test that scans the installed `CrimsonDesert.exe` and verifies hook constants, derived return targets, prompt literal target, and prompt text call targets.
+- Fixed PE raw-file-offset to runtime-RVA conversion for current game builds where section raw offsets are not equal to RVAs.
+- Updated release binaries.
+
 ## v0.1.5
 
 - Fixed configuration UI integer and checkbox reads for UTF-8 BOM INI files.

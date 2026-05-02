@@ -40,6 +40,14 @@ def test_record_interaction_uses_corpse_classifier() -> None:
     assert "type == kCorpseLootType" not in body
 
 
+def test_observed_current_ground_type_is_handled() -> None:
+    matcher = body_of("IsGroundLootType")
+    assert "kGroundLootCurrentType" in matcher
+
+    safety = body_of("IsUnsafePromptActionFallbackType")
+    assert "case 5:" in safety
+
+
 def test_prompt_action_fallback_is_guarded() -> None:
     fallback = body_of("IsCorpseInteraction")
     assert "HasRecentCorpsePromptAction" in fallback
@@ -106,6 +114,7 @@ def test_category_only_text_match_is_reliable_for_filtering() -> None:
 if __name__ == "__main__":
     test_corpse_types_include_original_and_rewrite_ids()
     test_record_interaction_uses_corpse_classifier()
+    test_observed_current_ground_type_is_handled()
     test_prompt_action_fallback_is_guarded()
     test_type1_unknown_ground_can_fall_back_to_corpse()
     test_corpse_interaction_uses_hold_not_tap()
