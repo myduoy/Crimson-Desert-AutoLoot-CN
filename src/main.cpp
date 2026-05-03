@@ -123,6 +123,11 @@ struct Hotkey {
   uint8_t mods = 0;
 };
 
+enum class UiLanguage : uint8_t {
+  kChinese,
+  kEnglish,
+};
+
 struct ItemResolveStats {
   uint32_t unique_keys = 0;
   std::array<uint32_t, 16> keys{};
@@ -245,6 +250,14 @@ HWND g_status_hwnd = nullptr;
 HFONT g_status_font = nullptr;
 std::wstring g_status_text;
 ULONGLONG g_status_hide_at = 0;
+UiLanguage g_ui_language = UiLanguage::kChinese;
+
+enum class StatusTextId : uint8_t {
+  kToggleEnabled,
+  kToggleDisabled,
+  kConfigClosed,
+  kConfigOpened,
+};
 
 void Log(const char* fmt, ...) {
   if (InterlockedCompareExchange(&g_debug_log, 0, 0) == 0) return;
@@ -432,6 +445,49 @@ int ReadIniInt(const wchar_t* section, const wchar_t* key, int fallback) {
   wchar_t* end = nullptr;
   const long parsed = std::wcstol(value, &end, 0);
   return end != value ? static_cast<int>(parsed) : fallback;
+}
+
+bool IsChineseSystemLanguage() {
+  const LANGID lang = GetUserDefaultUILanguage();
+  return PRIMARYLANGID(lang) == LANG_CHINESE;
+}
+
+std::wstring NormalizeLanguageSetting(std::wstring value) {
+  for (wchar_t& ch : value) {
+    if (ch >= L'a' && ch <= L'z') ch = static_cast<wchar_t>(ch - L'a' + L'A');
+  }
+  if (value == L"ZH" || value == L"CHINESE" || value == L"CN") return L"zh";
+  if (value == L"EN" || value == L"ENGLISH") return L"en";
+  return L"Auto";
+}
+
+UiLanguage ResolveLanguage(const std::wstring& setting) {
+  const std::wstring normalized = NormalizeLanguageSetting(setting);
+  if (normalized == L"zh") return UiLanguage::kChinese;
+  if (normalized == L"en") return UiLanguage::kEnglish;
+  return IsChineseSystemLanguage() ? UiLanguage::kChinese
+                                   : UiLanguage::kEnglish;
+}
+
+bool IsEnglishUi() { return g_ui_language == UiLanguage::kEnglish; }
+
+const wchar_t* StatusText(StatusTextId id) {
+  const bool en = IsEnglishUi();
+  switch (id) {
+    case StatusTextId::kToggleEnabled:
+      return en ? L"Auto-loot: Enabled"
+                : L"\u81ea\u52a8\u62fe\u53d6\uff1a\u5df2\u5f00\u542f";
+    case StatusTextId::kToggleDisabled:
+      return en ? L"Auto-loot: Disabled"
+                : L"\u81ea\u52a8\u62fe\u53d6\uff1a\u5df2\u5173\u95ed";
+    case StatusTextId::kConfigClosed:
+      return en ? L"Config window: Closed"
+                : L"\u914d\u7f6e\u7a97\u53e3\uff1a\u5df2\u5173\u95ed";
+    case StatusTextId::kConfigOpened:
+      return en ? L"Config window: Opened"
+                : L"\u914d\u7f6e\u7a97\u53e3\uff1a\u5df2\u6253\u5f00";
+  }
+  return L"";
 }
 
 const char* CategoryName(uint8_t category) {
@@ -954,6 +1010,9 @@ void LoadConfig() {
       ReadHotkey(L"ConfigHotkey", L"F10", Hotkey{VK_F10, 0});
   const int filter_enabled =
       ReadIniInt(L"ItemFilter", L"Enabled", 1) ? 1 : 0;
+  wchar_t language[32]{};
+  ReadIniStringValue(L"General", L"Language", L"Auto", language,
+                     static_cast<DWORD>(sizeof(language) / sizeof(language[0])));
 
   InterlockedExchange(&g_enabled, enabled);
   InterlockedExchange(&g_debug_log, debug);
@@ -968,6 +1027,7 @@ void LoadConfig() {
   InterlockedExchange(&g_ground_enabled, ground);
   InterlockedExchange(&g_corpse_enabled, corpse);
   InterlockedExchange(&g_item_filter_enabled, filter_enabled);
+  g_ui_language = ResolveLanguage(language);
   for (uint8_t category = 0; category < kCatCount; ++category) {
     const int value = ReadIniInt(L"ItemFilter", CategoryKey(category), 1) ? 1 : 0;
     InterlockedExchange(&g_category_enabled[category], value);
@@ -2631,8 +2691,8 @@ void HandleToggleHotkey() {
     const LONG old = InterlockedCompareExchange(&g_enabled, 0, 0);
     const LONG next = old ? 0 : 1;
     InterlockedExchange(&g_enabled, next);
-    ShowStatusToast(next ? L"\u81ea\u52a8\u62fe\u53d6\uff1a\u5df2\u5f00\u542f"
-                         : L"\u81ea\u52a8\u62fe\u53d6\uff1a\u5df2\u5173\u95ed");
+    ShowStatusToast(next ? StatusText(StatusTextId::kToggleEnabled)
+                         : StatusText(StatusTextId::kToggleDisabled));
     Log("toggle hotkey fired enabled=%ld vk=0x%X mods=0x%X", next, vk, mods);
   }
   was_down = down;
@@ -2657,7 +2717,7 @@ int CloseConfigWindows() {
 void ToggleConfigWindow() {
   const int closed = CloseConfigWindows();
   if (closed > 0) {
-    ShowStatusToast(L"\u914d\u7f6e\u7a97\u53e3\uff1a\u5df2\u5173\u95ed");
+    ShowStatusToast(StatusText(StatusTextId::kConfigClosed));
     Log("hotkey Alt+P close config windows=%d", closed);
     return;
   }
@@ -2665,7 +2725,7 @@ void ToggleConfigWindow() {
   HINSTANCE result =
       ShellExecuteW(nullptr, L"open", g_config_exe_path.c_str(), nullptr,
                     g_support_dir.c_str(), SW_SHOWNORMAL);
-  ShowStatusToast(L"\u914d\u7f6e\u7a97\u53e3\uff1a\u5df2\u6253\u5f00");
+  ShowStatusToast(StatusText(StatusTextId::kConfigOpened));
   Log("hotkey Alt+P launch config result=%p path=%S", result,
       g_config_exe_path.c_str());
 }
