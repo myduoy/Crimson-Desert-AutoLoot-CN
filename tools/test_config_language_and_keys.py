@@ -73,6 +73,32 @@ def test_language_setting_exists_in_defaults_and_ui() -> None:
     assert "ApplyLanguageToUi" in UI
 
 
+def test_runtime_status_toasts_follow_language_setting() -> None:
+    load_config = body_of(MAIN, "LoadConfig")
+    assert "ReadIniStringValue(L\"General\", L\"Language\", L\"Auto\", language" in load_config
+    assert "g_ui_language = ResolveLanguage(language)" in load_config
+
+    resolver = body_of(MAIN, "ResolveLanguage")
+    assert "NormalizeLanguageSetting" in resolver
+    assert "UiLanguage::kEnglish" in resolver
+    assert "UiLanguage::kChinese" in resolver
+    assert "GetUserDefaultUILanguage" in MAIN
+
+    status_text = body_of(MAIN, "StatusText")
+    assert "Auto-loot: Enabled" in status_text
+    assert "Auto-loot: Disabled" in status_text
+    assert "Config window: Closed" in status_text
+    assert "Config window: Opened" in status_text
+
+    toggle = body_of(MAIN, "HandleToggleHotkey")
+    assert "StatusText(StatusTextId::kToggleEnabled)" in toggle
+    assert "StatusText(StatusTextId::kToggleDisabled)" in toggle
+
+    config_toggle = body_of(MAIN, "ToggleConfigWindow")
+    assert "StatusText(StatusTextId::kConfigClosed)" in config_toggle
+    assert "StatusText(StatusTextId::kConfigOpened)" in config_toggle
+
+
 def test_config_ui_integer_reads_share_manual_ini_fallback() -> None:
     body = body_of(UI, "ReadIniInt")
     assert "GetPrivateProfileIntW" not in body
@@ -96,6 +122,7 @@ if __name__ == "__main__":
     test_interact_key_uses_full_key_parser_not_first_character()
     test_config_ui_saves_normalized_interact_key_names()
     test_language_setting_exists_in_defaults_and_ui()
+    test_runtime_status_toasts_follow_language_setting()
     test_config_ui_integer_reads_share_manual_ini_fallback()
     test_ui_item_and_category_text_can_switch_to_english()
     print("config language and key tests passed")
