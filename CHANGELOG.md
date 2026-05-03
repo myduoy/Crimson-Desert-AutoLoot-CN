@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.1.7
+
+- Updated the supported Crimson Desert build timestamp and prompt hook RVAs for the May 3, 2026 game update.
+- Verified the current prompt text signatures, branch signature, derived return addresses, skip target, prompt literal target, and prompt text call targets against the installed game executable.
+- Fixed the prompt text A installation guard so corpse prompt text is captured again after the May 3 update.
+- Added current-client skinning interaction `type 171` to the long-press interaction path.
+- Stopped short blocked pointer-text matches, such as stale nearby material names, from overriding an allowed weapon/armor/tool numeric category during ground-loot filtering.
+- Updated release binaries.
+
 ## v0.1.6
 
 - Updated the prompt text and interaction hook addresses for the May 2, 2026 Crimson Desert game update.
