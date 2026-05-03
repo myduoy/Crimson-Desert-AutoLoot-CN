@@ -34,6 +34,15 @@ def test_corpse_types_include_original_and_rewrite_ids() -> None:
     assert 39 not in values, "Animal_Catch must not be treated as corpse loot"
 
 
+def test_skinning_types_use_hold_interact_path() -> None:
+    match = re.search(r"kHoldInteractTypes\[\]\s*=\s*\{([^}]+)\}", SOURCE)
+    assert match, "hold interaction IDs should live in kHoldInteractTypes[]"
+    values = {int(number) for number in re.findall(r"\b\d+\b", match.group(1))}
+    assert 160 in values, "original skinning A type must trigger hold interact"
+    assert 161 in values, "original skinning B type must trigger hold interact"
+    assert 171 in values, "current-client skinning type must trigger hold interact"
+
+
 def test_record_interaction_uses_corpse_classifier() -> None:
     body = body_of("RecordInteraction")
     assert "IsCorpseInteraction" in body
@@ -78,6 +87,20 @@ def test_type1_unknown_ground_can_fall_back_to_corpse() -> None:
     assert "g_pending_corpse" in processor
 
 
+def test_blocked_short_pointer_text_cannot_override_allowed_equipment_category() -> None:
+    helper = body_of("ShouldUseNumericCategoryOverTextRefine")
+    assert "text.source != 5" in helper
+    assert "text.score > 1003" in helper
+    assert "IsEquipmentLikeCategory" in helper
+    assert "IsItemCategoryAllowed(numeric_category)" in helper
+    assert "IsItemBlocked(text.key)" in helper
+
+    refiner = body_of("bool TryGroundTextRefine")
+    assert "ShouldUseNumericCategoryOverTextRefine" in refiner
+    assert "source = 13" in refiner
+    assert "key = 0" in refiner
+
+
 def test_corpse_interaction_uses_hold_not_tap() -> None:
     source_no_spaces = re.sub(r"\s+", "", SOURCE)
     assert "kGroundInteractTapMs=55" in source_no_spaces
@@ -113,10 +136,12 @@ def test_category_only_text_match_is_reliable_for_filtering() -> None:
 
 if __name__ == "__main__":
     test_corpse_types_include_original_and_rewrite_ids()
+    test_skinning_types_use_hold_interact_path()
     test_record_interaction_uses_corpse_classifier()
     test_observed_current_ground_type_is_handled()
     test_prompt_action_fallback_is_guarded()
     test_type1_unknown_ground_can_fall_back_to_corpse()
+    test_blocked_short_pointer_text_cannot_override_allowed_equipment_category()
     test_corpse_interaction_uses_hold_not_tap()
     test_generic_equipment_prompt_text_can_classify_category()
     test_category_only_text_match_is_reliable_for_filtering()

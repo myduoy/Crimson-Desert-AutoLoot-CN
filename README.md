@@ -15,6 +15,15 @@ This is an unofficial community plugin. It does not include game files and is no
 - Hot-reloaded configuration when the INI file changes.
 - Lower-stutter filtering path: expensive ground-item text resolution runs on the plugin worker thread instead of the game hook callback.
 
+## v0.1.7 Fixes
+
+- Updated the supported build timestamp and prompt hook addresses for the May 3, 2026 Crimson Desert game update.
+- Verified the hook constants against the installed game executable with the local regression scanner.
+- Fixed the prompt text A installation guard so corpse looting can see search/loot corpse prompt text again.
+- Added current-client skinning interaction `type 171`.
+- Reduced false filtering where stale nearby material text could block visible weapon/armor/tool pickups.
+- Updated release binaries.
+
 ## v0.1.6 Fixes
 
 - Updated the prompt text and interaction hook addresses for the May 2, 2026 Crimson Desert game update.

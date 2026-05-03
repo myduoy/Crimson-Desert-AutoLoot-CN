@@ -16,6 +16,16 @@ def source_const(name: str) -> int:
     return int(match.group(1), 0)
 
 
+def source_byte_array(name: str) -> bytes:
+    match = re.search(
+        rf"const\s+uint8_t\s+{re.escape(name)}\[\]\s*=\s*\{{([^}}]+)\}};",
+        SOURCE,
+        re.S,
+    )
+    assert match, f"{name} byte array is missing"
+    return bytes(int(value, 16) for value in re.findall(r"0x[0-9A-Fa-f]{2}", match.group(1)))
+
+
 def pe_timestamp(data: bytes) -> int:
     pe_offset = struct.unpack_from("<I", data, 0x3C)[0]
     return struct.unpack_from("<I", data, pe_offset + 8)[0]
@@ -109,6 +119,8 @@ def test_source_hook_constants_match_installed_game() -> None:
     assert source_const("kPromptTextALiteralRva") == text_a + 27 + rel32(data, text_a_raw + 23)
     assert source_const("kPromptTextACallRva") == text_a + 38 + rel32(data, text_a_raw + 34)
     assert source_const("kPromptTextBCallRva") == text_b + 18 + rel32(data, text_b_raw + 14)
+    assert source_byte_array("expected_a") == data[text_a_raw:text_a_raw + source_const("kPromptTextAPatchLen")]
+    assert source_byte_array("expected_b") == data[text_b_raw:text_b_raw + source_const("kPromptTextBPatchLen")]
 
 
 if __name__ == "__main__":

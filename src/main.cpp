@@ -23,18 +23,18 @@
 
 namespace {
 
-constexpr uint32_t kSupportedBuildTimestamp = 0x69F49DC4;
+constexpr uint32_t kSupportedBuildTimestamp = 0x69F627EC;
 constexpr uintptr_t kPromptUpdateEntryRva = 0x00B8C6E0;
-constexpr uintptr_t kPromptTextAEntryRva = 0x00B8CDE7;
-constexpr uintptr_t kPromptTextBEntryRva = 0x00B8CE1F;
-constexpr uintptr_t kPromptBranchRva = 0x00B8CF55;
-constexpr uintptr_t kOriginalContinueRva = 0x00B8CF6D;
-constexpr uintptr_t kSkipPromptRva = 0x00B8D050;
-constexpr uintptr_t kPromptTextAReturnRva = 0x00B8CE0D;
-constexpr uintptr_t kPromptTextBReturnRva = 0x00B8CE31;
-constexpr uintptr_t kPromptTextALiteralRva = 0x04A222D8;
-constexpr uintptr_t kPromptTextACallRva = 0x00A83550;
-constexpr uintptr_t kPromptTextBCallRva = 0x00A82F90;
+constexpr uintptr_t kPromptTextAEntryRva = 0x00B8CCA7;
+constexpr uintptr_t kPromptTextBEntryRva = 0x00B8CCDF;
+constexpr uintptr_t kPromptBranchRva = 0x00B8CE15;
+constexpr uintptr_t kOriginalContinueRva = 0x00B8CE2D;
+constexpr uintptr_t kSkipPromptRva = 0x00B8CF10;
+constexpr uintptr_t kPromptTextAReturnRva = 0x00B8CCCD;
+constexpr uintptr_t kPromptTextBReturnRva = 0x00B8CCF1;
+constexpr uintptr_t kPromptTextALiteralRva = 0x04A23320;
+constexpr uintptr_t kPromptTextACallRva = 0x00A83410;
+constexpr uintptr_t kPromptTextBCallRva = 0x00A82E50;
 constexpr size_t kPatchLen = 23;
 constexpr size_t kPromptUpdatePatchLen = 15;
 constexpr size_t kPromptTextAPatchLen = 0x26;
@@ -45,6 +45,7 @@ constexpr uint32_t kGroundLootVariantType = 4;
 constexpr uint32_t kGroundLootCurrentType = 5;
 constexpr uint32_t kGroundLootRelicType = 19;
 constexpr uint32_t kCorpseLootTypes[] = {15, 168};
+constexpr uint32_t kHoldInteractTypes[] = {160, 161, 171};
 constexpr WORD kDefaultInteractKey = 'E';
 constexpr DWORD kGroundInteractTapMs = 55;
 constexpr DWORD kCorpseInteractHoldMs = 900;
@@ -1032,6 +1033,13 @@ bool IsCorpseLootType(uint32_t type) {
   return false;
 }
 
+bool IsHoldInteractType(uint32_t type) {
+  for (uint32_t hold_type : kHoldInteractTypes) {
+    if (type == hold_type) return true;
+  }
+  return false;
+}
+
 bool IsUnsafePromptActionFallbackType(uint32_t type) {
   switch (type) {
     case 1:
@@ -1078,6 +1086,7 @@ bool HasRecentCorpsePromptAction(ULONGLONG now) {
 
 bool IsCorpseInteraction(uint32_t type, ULONGLONG now) {
   if (IsCorpseLootType(type)) return true;
+  if (IsHoldInteractType(type)) return true;
   if (IsUnsafePromptActionFallbackType(type)) return false;
   const bool matched = HasRecentCorpsePromptAction(now);
   if (matched) {
@@ -1898,6 +1907,40 @@ bool ShouldTryGroundTextRefine(const ItemResolveResult& item) {
   return false;
 }
 
+bool IsEquipmentLikeCategory(uint8_t category) {
+  switch (category) {
+    case kCatWeapon:
+    case kCatArmor:
+    case kCatAccessory:
+    case kCatTool:
+    case kCatEquipment:
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool ShouldUseNumericCategoryOverTextRefine(const ItemResolveResult& numeric,
+                                            const ItemResolveResult& text) {
+  if (!numeric.resolved || numeric.text_match) return false;
+  if (!text.resolved || !text.text_match) return false;
+  if (text.source != 5) return false;
+  if (text.score > 1003) return false;
+
+  const uint8_t numeric_category =
+      numeric.category < kCatCount ? numeric.category : kCatUnknown;
+  const uint8_t text_category =
+      text.category < kCatCount ? text.category : kCatUnknown;
+  if (!IsEquipmentLikeCategory(numeric_category)) return false;
+  if (!IsItemCategoryAllowed(numeric_category) || IsItemBlocked(numeric.key)) {
+    return false;
+  }
+  if (IsItemCategoryAllowed(text_category) && !IsItemBlocked(text.key)) {
+    return false;
+  }
+  return true;
+}
+
 bool TryGroundTextRefine(uintptr_t target, uintptr_t candidate,
                          uintptr_t context,
                          const ItemResolveResult& numeric,
@@ -1905,6 +1948,21 @@ bool TryGroundTextRefine(uintptr_t target, uintptr_t candidate,
   if (!result) return false;
   ItemResolveResult text{};
   if (!ResolveGroundItemByText(target, candidate, context, &text)) return false;
+  if (ShouldUseNumericCategoryOverTextRefine(numeric, text)) {
+    *result = numeric;
+    result->key = 0;
+    result->category =
+        numeric.category < kCatCount ? numeric.category : kCatUnknown;
+    result->ambiguous = false;
+    result->text_match = true;
+    result->source = 13;
+    result->unique_keys = 0;
+    result->score = 700;
+    Log("ground text refine ignored suspicious blocked pointer text: numeric_item=%lu numeric_category=%s text_item=%lu text_category=%s text_offset=0x%X",
+        numeric.key, CategoryName(numeric.category), text.key,
+        CategoryName(text.category), text.offset);
+    return true;
+  }
   *result = text;
   if (!numeric.resolved || numeric.key != text.key) {
     Log("ground text refine: numeric_item=%lu numeric_category=%s numeric_source=%u numeric_offset=0x%X -> item=%lu category=%s source=%u offset=0x%X",
@@ -2362,8 +2420,8 @@ bool InstallPromptTextHooks() {
   const uint8_t expected_a[] = {
       0x41, 0x0F, 0xB6, 0x4D, 0x3A, 0x49, 0x8B, 0x45,
       0x30, 0x4D, 0x8D, 0x86, 0x80, 0x01, 0x00, 0x00,
-      0x88, 0x4C, 0x24, 0x20, 0x4C, 0x8D, 0x0D, 0xD6,
-      0x54, 0xE9, 0x03, 0x48, 0x8B, 0x10, 0x48, 0x8B,
+      0x88, 0x4C, 0x24, 0x20, 0x4C, 0x8D, 0x0D, 0x5E,
+      0x66, 0xE9, 0x03, 0x48, 0x8B, 0x10, 0x48, 0x8B,
       0xCF, 0xE8, 0x43, 0x67, 0xEF, 0xFF};
   void* stub_a = nullptr;
   const bool ok_a = InstallAbsJumpHook(
