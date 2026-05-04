@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.1.8
+
+- Added a Chinese installation, runtime requirements, update, troubleshooting, and uninstall guide.
+- Documented Ultimate ASI Loader v9.7.1 as the recommended ASI loader source.
+- Fixed in-game F9/F10 status toast language: English UI users now see English enable/disable and config-window messages.
+- Updated release packaging to include the `docs` directory.
+
 ## v0.1.7
 
 - Updated the supported Crimson Desert build timestamp and prompt hook RVAs for the May 3, 2026 game update.

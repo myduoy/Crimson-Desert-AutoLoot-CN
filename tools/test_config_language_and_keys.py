@@ -62,6 +62,9 @@ def test_config_ui_saves_normalized_interact_key_names() -> None:
 
 def test_language_setting_exists_in_defaults_and_ui() -> None:
     assert re.search(r"(?m)^Language=Auto$", DEFAULTS)
+    assert "ReadIniStringValue(L\"General\", L\"Language\"" in MAIN
+    assert "ResolveEnglishUiLanguage" in MAIN
+    assert "UiToastText" in MAIN
     assert "IDC_LANGUAGE_COMBO" in UI
     assert "ReadIniString(L\"General\", L\"Language\"" in UI
     assert "WriteIniString(L\"General\", L\"Language\"" in UI
@@ -92,10 +95,23 @@ def test_ui_item_and_category_text_can_switch_to_english() -> None:
     assert "item.localized_name" in item_name
 
 
+def test_in_game_status_toasts_follow_language_setting() -> None:
+    toggle = body_of(MAIN, "HandleToggleHotkey")
+    assert "UiToastText" in toggle
+    assert "AutoLoot: enabled" in toggle
+    assert "AutoLoot: disabled" in toggle
+
+    config = body_of(MAIN, "ToggleConfigWindow")
+    assert "UiToastText" in config
+    assert "Config window: closed" in config
+    assert "Config window: opened" in config
+
+
 if __name__ == "__main__":
     test_interact_key_uses_full_key_parser_not_first_character()
     test_config_ui_saves_normalized_interact_key_names()
     test_language_setting_exists_in_defaults_and_ui()
     test_config_ui_integer_reads_share_manual_ini_fallback()
     test_ui_item_and_category_text_can_switch_to_english()
+    test_in_game_status_toasts_follow_language_setting()
     print("config language and key tests passed")

@@ -15,6 +15,27 @@ This is an unofficial community plugin. It does not include game files and is no
 - Hot-reloaded configuration when the INI file changes.
 - Lower-stutter filtering path: expensive ground-item text resolution runs on the plugin worker thread instead of the game hook callback.
 
+## User Guide
+
+Chinese installation, runtime requirements, update, troubleshooting, and uninstall documentation:
+
+```text
+docs\INSTALL_UNINSTALL.zh-CN.md
+```
+
+ASI loader download:
+
+```text
+https://github.com/ThirteenAG/Ultimate-ASI-Loader/releases/tag/v9.7.1
+```
+
+## v0.1.8 Fixes
+
+- Added installation, runtime requirements, update, troubleshooting, and uninstall documentation.
+- Documented Ultimate ASI Loader v9.7.1 as the recommended ASI loader source.
+- Fixed in-game F9/F10 status toasts so English UI users see English messages.
+- Updated the release package to include the `docs` directory.
+
 ## v0.1.7 Fixes
 
 - Updated the supported build timestamp and prompt hook addresses for the May 3, 2026 Crimson Desert game update.
@@ -89,6 +110,8 @@ Debug logging is disabled by default. Set `DebugLog=1` in `crimson_autoloot_cn.i
 - `package.ps1`: release zip packaging script.
 
 ## Install
+
+For the full Chinese guide, see `docs\INSTALL_UNINSTALL.zh-CN.md`.
 
 1. Close the game.
 2. Copy `release/crimson_autoloot_cn.asi` to:

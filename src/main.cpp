@@ -200,6 +200,7 @@ volatile LONG g_toggle_hotkey_mods = 0;
 volatile LONG g_config_hotkey_vk = VK_F10;
 volatile LONG g_config_hotkey_mods = 0;
 volatile LONG g_item_filter_enabled = 1;
+volatile LONG g_english_ui_language = 0;
 std::array<volatile LONG, kCatCount> g_category_enabled{};
 volatile LONG64 g_last_ground_target = 0;
 volatile LONG64 g_last_ground_candidate = 0;
@@ -433,6 +434,30 @@ int ReadIniInt(const wchar_t* section, const wchar_t* key, int fallback) {
   wchar_t* end = nullptr;
   const long parsed = std::wcstol(value, &end, 0);
   return end != value ? static_cast<int>(parsed) : fallback;
+}
+
+std::wstring NormalizeLanguageSetting(std::wstring value) {
+  for (wchar_t& ch : value) {
+    if (ch >= L'a' && ch <= L'z') ch = static_cast<wchar_t>(ch - L'a' + L'A');
+  }
+  if (value == L"ZH" || value == L"CHINESE" || value == L"CN") return L"zh";
+  if (value == L"EN" || value == L"ENGLISH") return L"en";
+  return L"Auto";
+}
+
+bool IsChineseSystemLanguage() {
+  return PRIMARYLANGID(GetUserDefaultUILanguage()) == LANG_CHINESE;
+}
+
+bool ResolveEnglishUiLanguage(const std::wstring& setting) {
+  const std::wstring normalized = NormalizeLanguageSetting(setting);
+  if (normalized == L"zh") return false;
+  if (normalized == L"en") return true;
+  return !IsChineseSystemLanguage();
+}
+
+const wchar_t* UiToastText(const wchar_t* zh, const wchar_t* en) {
+  return InterlockedCompareExchange(&g_english_ui_language, 0, 0) ? en : zh;
 }
 
 const char* CategoryName(uint8_t category) {
@@ -953,6 +978,10 @@ void LoadConfig() {
       ReadHotkey(L"ToggleHotkey", L"F9", Hotkey{VK_F9, 0});
   const Hotkey config_hotkey =
       ReadHotkey(L"ConfigHotkey", L"F10", Hotkey{VK_F10, 0});
+  wchar_t language_value[32]{};
+  ReadIniStringValue(L"General", L"Language", L"Auto", language_value,
+                     static_cast<DWORD>(sizeof(language_value) /
+                                        sizeof(language_value[0])));
   const int filter_enabled =
       ReadIniInt(L"ItemFilter", L"Enabled", 1) ? 1 : 0;
 
@@ -966,6 +995,8 @@ void LoadConfig() {
   InterlockedExchange(&g_toggle_hotkey_mods, toggle_hotkey.mods);
   InterlockedExchange(&g_config_hotkey_vk, config_hotkey.vk);
   InterlockedExchange(&g_config_hotkey_mods, config_hotkey.mods);
+  InterlockedExchange(&g_english_ui_language,
+                      ResolveEnglishUiLanguage(language_value) ? 1 : 0);
   InterlockedExchange(&g_ground_enabled, ground);
   InterlockedExchange(&g_corpse_enabled, corpse);
   InterlockedExchange(&g_item_filter_enabled, filter_enabled);
@@ -2689,8 +2720,10 @@ void HandleToggleHotkey() {
     const LONG old = InterlockedCompareExchange(&g_enabled, 0, 0);
     const LONG next = old ? 0 : 1;
     InterlockedExchange(&g_enabled, next);
-    ShowStatusToast(next ? L"\u81ea\u52a8\u62fe\u53d6\uff1a\u5df2\u5f00\u542f"
-                         : L"\u81ea\u52a8\u62fe\u53d6\uff1a\u5df2\u5173\u95ed");
+    ShowStatusToast(next ? UiToastText(L"\u81ea\u52a8\u62fe\u53d6\uff1a\u5df2\u5f00\u542f",
+                                       L"AutoLoot: enabled")
+                         : UiToastText(L"\u81ea\u52a8\u62fe\u53d6\uff1a\u5df2\u5173\u95ed",
+                                       L"AutoLoot: disabled"));
     Log("toggle hotkey fired enabled=%ld vk=0x%X mods=0x%X", next, vk, mods);
   }
   was_down = down;
@@ -2715,16 +2748,18 @@ int CloseConfigWindows() {
 void ToggleConfigWindow() {
   const int closed = CloseConfigWindows();
   if (closed > 0) {
-    ShowStatusToast(L"\u914d\u7f6e\u7a97\u53e3\uff1a\u5df2\u5173\u95ed");
-    Log("hotkey Alt+P close config windows=%d", closed);
+    ShowStatusToast(UiToastText(L"\u914d\u7f6e\u7a97\u53e3\uff1a\u5df2\u5173\u95ed",
+                                L"Config window: closed"));
+    Log("config hotkey close config windows=%d", closed);
     return;
   }
 
   HINSTANCE result =
       ShellExecuteW(nullptr, L"open", g_config_exe_path.c_str(), nullptr,
                     g_support_dir.c_str(), SW_SHOWNORMAL);
-  ShowStatusToast(L"\u914d\u7f6e\u7a97\u53e3\uff1a\u5df2\u6253\u5f00");
-  Log("hotkey Alt+P launch config result=%p path=%S", result,
+  ShowStatusToast(UiToastText(L"\u914d\u7f6e\u7a97\u53e3\uff1a\u5df2\u6253\u5f00",
+                              L"Config window: opened"));
+  Log("config hotkey launch config result=%p path=%S", result,
       g_config_exe_path.c_str());
 }
 

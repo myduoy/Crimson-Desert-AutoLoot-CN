@@ -4,7 +4,7 @@ $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Dist = Join-Path $Root "dist"
 $Stage = Join-Path $Dist "Crimson-Desert-AutoLoot-CN"
 $Support = Join-Path $Stage "crimson_autoloot_cn"
-$Zip = Join-Path $Dist "Crimson-Desert-AutoLoot-CN-v0.1.7.zip"
+$Zip = Join-Path $Dist "Crimson-Desert-AutoLoot-CN-v0.1.8.zip"
 
 if (Test-Path -LiteralPath $Stage) {
   Remove-Item -LiteralPath $Stage -Recurse -Force
@@ -17,6 +17,7 @@ Copy-Item -LiteralPath (Join-Path $Root "crimson_autoloot_defaults.ini") -Destin
 Copy-Item -LiteralPath (Join-Path $Root "crimson_autoloot_items.tsv") -Destination (Join-Path $Support "crimson_autoloot_items.tsv") -Force
 Copy-Item -LiteralPath (Join-Path $Root "README.md") -Destination (Join-Path $Stage "README.md") -Force
 Copy-Item -LiteralPath (Join-Path $Root "LICENSE") -Destination (Join-Path $Stage "LICENSE") -Force
+Copy-Item -LiteralPath (Join-Path $Root "docs") -Destination (Join-Path $Stage "docs") -Recurse -Force
 
 if (Test-Path -LiteralPath $Zip) {
   Remove-Item -LiteralPath $Zip -Force
