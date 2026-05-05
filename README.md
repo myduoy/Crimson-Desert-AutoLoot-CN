@@ -17,9 +17,10 @@ This is an unofficial community plugin. It does not include game files and is no
 
 ## User Guide
 
-Chinese installation, runtime requirements, update, troubleshooting, and uninstall documentation:
+Installation, runtime requirements, update, troubleshooting, and uninstall documentation:
 
 ```text
+docs\INSTALL_UNINSTALL.en-US.md
 docs\INSTALL_UNINSTALL.zh-CN.md
 ```
 
@@ -31,7 +32,7 @@ https://github.com/ThirteenAG/Ultimate-ASI-Loader/releases/tag/v9.7.1
 
 ## v0.1.8 Fixes
 
-- Added installation, runtime requirements, update, troubleshooting, and uninstall documentation.
+- Added English and Chinese installation, runtime requirements, update, troubleshooting, and uninstall documentation.
 - Documented Ultimate ASI Loader v9.7.1 as the recommended ASI loader source.
 - Fixed in-game F9/F10 status toasts so English UI users see English messages.
 - Updated the release package to include the `docs` directory.
@@ -111,7 +112,7 @@ Debug logging is disabled by default. Set `DebugLog=1` in `crimson_autoloot_cn.i
 
 ## Install
 
-For the full Chinese guide, see `docs\INSTALL_UNINSTALL.zh-CN.md`.
+For the full guide, see `docs\INSTALL_UNINSTALL.en-US.md` or `docs\INSTALL_UNINSTALL.zh-CN.md`.
 
 1. Close the game.
 2. Copy `release/crimson_autoloot_cn.asi` to:

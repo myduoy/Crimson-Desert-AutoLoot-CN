@@ -2,7 +2,7 @@
 
 ## v0.1.8
 
-- Added a Chinese installation, runtime requirements, update, troubleshooting, and uninstall guide.
+- Added English and Chinese installation, runtime requirements, update, troubleshooting, and uninstall guides.
 - Documented Ultimate ASI Loader v9.7.1 as the recommended ASI loader source.
 - Fixed in-game F9/F10 status toast language: English UI users now see English enable/disable and config-window messages.
 - Updated release packaging to include the `docs` directory.

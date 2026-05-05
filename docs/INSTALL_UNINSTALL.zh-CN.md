@@ -36,6 +36,7 @@ Crimson-Desert-AutoLoot-CN\
     crimson_autoloot_defaults.ini
     crimson_autoloot_items.tsv
   docs\
+    INSTALL_UNINSTALL.en-US.md
     INSTALL_UNINSTALL.zh-CN.md
   README.md
   LICENSE
