@@ -23,7 +23,7 @@ https://github.com/ThirteenAG/Ultimate-ASI-Loader/releases/tag/v9.7.1
 从 GitHub Releases 或 Nexus Mods 下载发布包，例如：
 
 ```text
-Crimson-Desert-AutoLoot-CN-v0.1.8.zip
+Crimson-Desert-AutoLoot-CN-v0.1.9.zip
 ```
 
 解压后应能看到类似结构：
@@ -72,7 +72,7 @@ Crimson-Desert-AutoLoot-CN\
 ## 安装 AutoLoot 插件
 
 1. 关闭游戏。
-2. 解压 `Crimson-Desert-AutoLoot-CN-v0.1.8.zip`。
+2. 解压 `Crimson-Desert-AutoLoot-CN-v0.1.9.zip`。
 3. 将 `crimson_autoloot_cn.asi` 复制到：
 
    ```text

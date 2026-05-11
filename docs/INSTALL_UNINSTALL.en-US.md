@@ -23,7 +23,7 @@ Ultimate ASI Loader supports proxy DLL names such as `version.dll`. For Crimson 
 Download the release package from GitHub Releases or Nexus Mods, for example:
 
 ```text
-Crimson-Desert-AutoLoot-CN-v0.1.8.zip
+Crimson-Desert-AutoLoot-CN-v0.1.9.zip
 ```
 
 After extraction, the package should look like this:
@@ -72,7 +72,7 @@ Do not install multiple conflicting ASI loaders at the same time. Conflicting pr
 ## Install AutoLoot
 
 1. Close the game.
-2. Extract `Crimson-Desert-AutoLoot-CN-v0.1.8.zip`.
+2. Extract `Crimson-Desert-AutoLoot-CN-v0.1.9.zip`.
 3. Copy `crimson_autoloot_cn.asi` to:
 
    ```text

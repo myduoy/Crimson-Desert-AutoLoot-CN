@@ -87,6 +87,21 @@ def find_text_b(data: bytes) -> int:
     return hits[0]
 
 
+def find_prompt_update(data: bytes, text_a_raw: int) -> int:
+    prologue = bytes.fromhex("48 89 54 24 10 55 53 56 57 41 54 41 55 41 56")
+    search_start = max(0, text_a_raw - 0x1200)
+    hits = []
+    start = search_start
+    while True:
+        index = data.find(prologue, start, text_a_raw)
+        if index < 0:
+            break
+        hits.append(index)
+        start = index + 1
+    assert len(hits) == 1, f"expected one prompt update prologue before text A, got {len(hits)}"
+    return hits[0]
+
+
 def assert_branch_at(data: bytes, rva: int) -> None:
     assert data[rva:rva + 6] == bytes.fromhex("40 80 FE 02 0F 84")
     assert data[rva + 10:rva + 20] == bytes.fromhex("41 80 BE 8E 01 00 00 00 0F 85")
@@ -102,13 +117,16 @@ def test_source_hook_constants_match_installed_game() -> None:
 
     text_a_raw = find_text_a(data)
     text_b_raw = find_text_b(data)
+    prompt_update_raw = find_prompt_update(data, text_a_raw)
     branch_raw = text_a_raw + (source_const("kPromptBranchRva") - source_const("kPromptTextAEntryRva"))
     assert_branch_at(data, branch_raw)
+    prompt_update = raw_to_rva(data, prompt_update_raw)
     text_a = raw_to_rva(data, text_a_raw)
     text_b = raw_to_rva(data, text_b_raw)
     branch = raw_to_rva(data, branch_raw)
 
     assert source_const("kSupportedBuildTimestamp") == pe_timestamp(data)
+    assert source_const("kPromptUpdateEntryRva") == prompt_update
     assert source_const("kPromptTextAEntryRva") == text_a
     assert source_const("kPromptTextBEntryRva") == text_b
     assert source_const("kPromptBranchRva") == branch

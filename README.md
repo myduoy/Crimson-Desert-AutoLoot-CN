@@ -30,6 +30,13 @@ ASI loader download:
 https://github.com/ThirteenAG/Ultimate-ASI-Loader/releases/tag/v9.7.1
 ```
 
+## v0.1.9 Fixes
+
+- Updated the supported build timestamp and prompt hook addresses for the May 11, 2026 Crimson Desert game update.
+- Updated prompt update, prompt text A/B, prompt branch, skip target, literal target, and call target constants for the current installed game executable.
+- Added regression coverage for the prompt update hook entry.
+- Updated release binaries.
+
 ## v0.1.8 Fixes
 
 - Added English and Chinese installation, runtime requirements, update, troubleshooting, and uninstall documentation.

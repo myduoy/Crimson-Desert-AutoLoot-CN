@@ -23,18 +23,18 @@
 
 namespace {
 
-constexpr uint32_t kSupportedBuildTimestamp = 0x69F627EC;
-constexpr uintptr_t kPromptUpdateEntryRva = 0x00B8C6E0;
-constexpr uintptr_t kPromptTextAEntryRva = 0x00B8CCA7;
-constexpr uintptr_t kPromptTextBEntryRva = 0x00B8CCDF;
-constexpr uintptr_t kPromptBranchRva = 0x00B8CE15;
-constexpr uintptr_t kOriginalContinueRva = 0x00B8CE2D;
-constexpr uintptr_t kSkipPromptRva = 0x00B8CF10;
-constexpr uintptr_t kPromptTextAReturnRva = 0x00B8CCCD;
-constexpr uintptr_t kPromptTextBReturnRva = 0x00B8CCF1;
-constexpr uintptr_t kPromptTextALiteralRva = 0x04A23320;
-constexpr uintptr_t kPromptTextACallRva = 0x00A83410;
-constexpr uintptr_t kPromptTextBCallRva = 0x00A82E50;
+constexpr uint32_t kSupportedBuildTimestamp = 0x6A00A32D;
+constexpr uintptr_t kPromptUpdateEntryRva = 0x00B94B70;
+constexpr uintptr_t kPromptTextAEntryRva = 0x00B95277;
+constexpr uintptr_t kPromptTextBEntryRva = 0x00B952AF;
+constexpr uintptr_t kPromptBranchRva = 0x00B953E5;
+constexpr uintptr_t kOriginalContinueRva = 0x00B953FD;
+constexpr uintptr_t kSkipPromptRva = 0x00B954E0;
+constexpr uintptr_t kPromptTextAReturnRva = 0x00B9529D;
+constexpr uintptr_t kPromptTextBReturnRva = 0x00B952C1;
+constexpr uintptr_t kPromptTextALiteralRva = 0x04A3D7B8;
+constexpr uintptr_t kPromptTextACallRva = 0x00A8B820;
+constexpr uintptr_t kPromptTextBCallRva = 0x00A8B260;
 constexpr size_t kPatchLen = 23;
 constexpr size_t kPromptUpdatePatchLen = 15;
 constexpr size_t kPromptTextAPatchLen = 0x26;
@@ -2344,7 +2344,7 @@ std::vector<uint8_t> BuildPromptUpdateStub() {
   EmitBytes(code, {0xFF, 0xD0});
   EmitRestoreVolatile(code);
 
-  // Original first 15 bytes at 0x140BD0C70. They are all prologue bytes with
+  // Original first 15 bytes at kPromptUpdateEntryRva. They are all prologue bytes with
   // no relative operands, so they are safe to replay before returning.
   EmitBytes(code, {0x48, 0x89, 0x54, 0x24, 0x10, 0x55, 0x53, 0x56,
                    0x57, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56});
@@ -2451,9 +2451,9 @@ bool InstallPromptTextHooks() {
   const uint8_t expected_a[] = {
       0x41, 0x0F, 0xB6, 0x4D, 0x3A, 0x49, 0x8B, 0x45,
       0x30, 0x4D, 0x8D, 0x86, 0x80, 0x01, 0x00, 0x00,
-      0x88, 0x4C, 0x24, 0x20, 0x4C, 0x8D, 0x0D, 0x5E,
-      0x66, 0xE9, 0x03, 0x48, 0x8B, 0x10, 0x48, 0x8B,
-      0xCF, 0xE8, 0x43, 0x67, 0xEF, 0xFF};
+      0x88, 0x4C, 0x24, 0x20, 0x4C, 0x8D, 0x0D, 0x26,
+      0x85, 0xEA, 0x03, 0x48, 0x8B, 0x10, 0x48, 0x8B,
+      0xCF, 0xE8, 0x83, 0x65, 0xEF, 0xFF};
   void* stub_a = nullptr;
   const bool ok_a = InstallAbsJumpHook(
       target_a, expected_a, sizeof(expected_a), BuildPromptTextAStub(),
@@ -2462,7 +2462,7 @@ bool InstallPromptTextHooks() {
   uint8_t* target_b = reinterpret_cast<uint8_t*>(g_game + kPromptTextBEntryRva);
   const uint8_t expected_b[] = {0x49, 0x8B, 0x45, 0x40, 0x41, 0xB0,
                                 0x01, 0x48, 0x8B, 0x10, 0x48, 0x8B,
-                                0xCF, 0xE8, 0x5F, 0x61, 0xEF, 0xFF};
+                                0xCF, 0xE8, 0x9F, 0x5F, 0xEF, 0xFF};
   void* stub_b = nullptr;
   const bool ok_b = InstallAbsJumpHook(
       target_b, expected_b, sizeof(expected_b), BuildPromptTextBStub(),

@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.1.9
+
+- Updated the supported Crimson Desert build timestamp and prompt hook RVAs for the May 11, 2026 game update.
+- Updated prompt update, prompt text A/B, prompt branch, skip target, literal target, and call target constants for the current installed game executable.
+- Added regression coverage for the prompt update hook entry so future game updates catch this hook instead of only validating prompt text hooks.
+- Updated release binaries.
+
 ## v0.1.8
 
 - Added English and Chinese installation, runtime requirements, update, troubleshooting, and uninstall guides.
