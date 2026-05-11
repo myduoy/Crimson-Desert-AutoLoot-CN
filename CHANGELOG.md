@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.10
+
+- Fixed skinning after the May 11, 2026 game update by adding observed interaction types `172` and `173` to the long-hold interaction path.
+- Added regression coverage for the new skinning interaction IDs.
+- Updated release binaries.
+
 ## v0.1.9
 
 - Updated the supported Crimson Desert build timestamp and prompt hook RVAs for the May 11, 2026 game update.

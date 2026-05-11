@@ -45,7 +45,7 @@ constexpr uint32_t kGroundLootVariantType = 4;
 constexpr uint32_t kGroundLootCurrentType = 5;
 constexpr uint32_t kGroundLootRelicType = 19;
 constexpr uint32_t kCorpseLootTypes[] = {15, 168};
-constexpr uint32_t kHoldInteractTypes[] = {160, 161, 171};
+constexpr uint32_t kHoldInteractTypes[] = {160, 161, 171, 172, 173};
 constexpr WORD kDefaultInteractKey = 'E';
 constexpr DWORD kGroundInteractTapMs = 55;
 constexpr DWORD kCorpseInteractHoldMs = 900;
@@ -1098,6 +1098,9 @@ bool IsUnsafePromptActionFallbackType(uint32_t type) {
     case 50:
     case 160:
     case 161:
+    case 171:
+    case 172:
+    case 173:
     case 266:
     case 93:
       return true;

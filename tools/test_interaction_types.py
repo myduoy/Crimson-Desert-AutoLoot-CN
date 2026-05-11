@@ -40,7 +40,9 @@ def test_skinning_types_use_hold_interact_path() -> None:
     values = {int(number) for number in re.findall(r"\b\d+\b", match.group(1))}
     assert 160 in values, "original skinning A type must trigger hold interact"
     assert 161 in values, "original skinning B type must trigger hold interact"
-    assert 171 in values, "current-client skinning type must trigger hold interact"
+    assert 171 in values, "May 2026 skinning type must trigger hold interact"
+    assert 172 in values, "May 11 skinning A type must trigger hold interact"
+    assert 173 in values, "May 11 skinning B type must trigger hold interact"
 
 
 def test_record_interaction_uses_corpse_classifier() -> None:
@@ -64,7 +66,7 @@ def test_prompt_action_fallback_is_guarded() -> None:
     safety = body_of("IsUnsafePromptActionFallbackType")
     for interaction_type in (
         1, 4, 19, 24, 25, 26, 27, 29, 30, 31, 32, 33, 34, 35, 36,
-        37, 38, 39, 40, 41, 42, 50, 160, 161, 266, 93
+        37, 38, 39, 40, 41, 42, 50, 160, 161, 171, 172, 173, 266, 93
     ):
         assert f"case {interaction_type}:" in safety
 
