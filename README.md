@@ -30,6 +30,12 @@ ASI loader download:
 https://github.com/ThirteenAG/Ultimate-ASI-Loader/releases/tag/v9.7.1
 ```
 
+## v0.1.11 Fixes
+
+- Updated the supported build timestamp for the May 12, 2026 Crimson Desert game update.
+- Updated the prompt text A literal target and expected hook bytes for the current installed game executable.
+- Updated release binaries.
+
 ## v0.1.10 Fixes
 
 - Fixed skinning after the May 11, 2026 game update by adding observed interaction types `172` and `173` to the long-hold interaction path.

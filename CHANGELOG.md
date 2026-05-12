@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.11
+
+- Updated the supported Crimson Desert build timestamp for the May 12, 2026 game update.
+- Updated the prompt text A literal target and expected hook bytes for the current installed game executable.
+- Updated release binaries.
+
 ## v0.1.10
 
 - Fixed skinning after the May 11, 2026 game update by adding observed interaction types `172` and `173` to the long-hold interaction path.
