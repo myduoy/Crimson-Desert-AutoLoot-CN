@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.12
+
+- Updated the supported Crimson Desert build timestamp for the May 15, 2026 game update.
+- Updated prompt update, prompt text A/B, prompt branch, skip target, literal target, and call target constants for the current installed game executable.
+- Updated release binaries.
+
 ## v0.1.11
 
 - Updated the supported Crimson Desert build timestamp for the May 12, 2026 game update.

@@ -23,18 +23,18 @@
 
 namespace {
 
-constexpr uint32_t kSupportedBuildTimestamp = 0x6A01EECF;
-constexpr uintptr_t kPromptUpdateEntryRva = 0x00B94B70;
-constexpr uintptr_t kPromptTextAEntryRva = 0x00B95277;
-constexpr uintptr_t kPromptTextBEntryRva = 0x00B952AF;
-constexpr uintptr_t kPromptBranchRva = 0x00B953E5;
-constexpr uintptr_t kOriginalContinueRva = 0x00B953FD;
-constexpr uintptr_t kSkipPromptRva = 0x00B954E0;
-constexpr uintptr_t kPromptTextAReturnRva = 0x00B9529D;
-constexpr uintptr_t kPromptTextBReturnRva = 0x00B952C1;
-constexpr uintptr_t kPromptTextALiteralRva = 0x04A3D778;
-constexpr uintptr_t kPromptTextACallRva = 0x00A8B820;
-constexpr uintptr_t kPromptTextBCallRva = 0x00A8B260;
+constexpr uint32_t kSupportedBuildTimestamp = 0x6A05DEBA;
+constexpr uintptr_t kPromptUpdateEntryRva = 0x00B94F40;
+constexpr uintptr_t kPromptTextAEntryRva = 0x00B95647;
+constexpr uintptr_t kPromptTextBEntryRva = 0x00B9567F;
+constexpr uintptr_t kPromptBranchRva = 0x00B957B5;
+constexpr uintptr_t kOriginalContinueRva = 0x00B957CD;
+constexpr uintptr_t kSkipPromptRva = 0x00B958B0;
+constexpr uintptr_t kPromptTextAReturnRva = 0x00B9566D;
+constexpr uintptr_t kPromptTextBReturnRva = 0x00B95691;
+constexpr uintptr_t kPromptTextALiteralRva = 0x04A3EA08;
+constexpr uintptr_t kPromptTextACallRva = 0x00A8BBF0;
+constexpr uintptr_t kPromptTextBCallRva = 0x00A8B630;
 constexpr size_t kPatchLen = 23;
 constexpr size_t kPromptUpdatePatchLen = 15;
 constexpr size_t kPromptTextAPatchLen = 0x26;
@@ -2454,8 +2454,8 @@ bool InstallPromptTextHooks() {
   const uint8_t expected_a[] = {
       0x41, 0x0F, 0xB6, 0x4D, 0x3A, 0x49, 0x8B, 0x45,
       0x30, 0x4D, 0x8D, 0x86, 0x80, 0x01, 0x00, 0x00,
-      0x88, 0x4C, 0x24, 0x20, 0x4C, 0x8D, 0x0D, 0xE6,
-      0x84, 0xEA, 0x03, 0x48, 0x8B, 0x10, 0x48, 0x8B,
+      0x88, 0x4C, 0x24, 0x20, 0x4C, 0x8D, 0x0D, 0xA6,
+      0x93, 0xEA, 0x03, 0x48, 0x8B, 0x10, 0x48, 0x8B,
       0xCF, 0xE8, 0x83, 0x65, 0xEF, 0xFF};
   void* stub_a = nullptr;
   const bool ok_a = InstallAbsJumpHook(
