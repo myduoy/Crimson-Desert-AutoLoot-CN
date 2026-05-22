@@ -30,6 +30,15 @@ ASI loader download:
 https://github.com/ThirteenAG/Ultimate-ASI-Loader/releases/tag/v9.7.1
 ```
 
+## v0.1.13 Fixes
+
+- Updated the supported build timestamp for the May 22, 2026 Crimson Desert game update.
+- Updated prompt update, prompt text A/B, prompt branch, skip target, literal target, and call target constants for the current installed game executable.
+- Updated prompt text and branch hook stubs for the current prompt owner/context register allocation.
+- Added the current-client corpse prompt interaction `type 2` to the long-hold corpse loot path.
+- Expanded hook regression coverage for prompt update and branch expected bytes.
+- Updated release binaries.
+
 ## v0.1.12 Fixes
 
 - Updated the supported build timestamp for the May 15, 2026 Crimson Desert game update.

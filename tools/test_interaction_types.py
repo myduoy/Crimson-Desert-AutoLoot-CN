@@ -28,6 +28,7 @@ def test_corpse_types_include_original_and_rewrite_ids() -> None:
     match = re.search(r"kCorpseLootTypes\[\]\s*=\s*\{([^}]+)\}", SOURCE)
     assert match, "corpse interaction IDs should live in kCorpseLootTypes[]"
     values = {int(number) for number in re.findall(r"\b\d+\b", match.group(1))}
+    assert 2 in values, "May 22 resolver hook observes corpse prompts as type 2"
     assert 15 in values, "original AutoLoot corpse/gather type 15 must be handled"
     assert 168 in values, "rewrite-observed corpse type 168 must stay handled"
     assert 38 not in values, "DeadAnimal_Catch must not be treated as corpse loot"
@@ -106,7 +107,7 @@ def test_blocked_short_pointer_text_cannot_override_allowed_equipment_category()
 def test_corpse_interaction_uses_hold_not_tap() -> None:
     source_no_spaces = re.sub(r"\s+", "", SOURCE)
     assert "kGroundInteractTapMs=55" in source_no_spaces
-    assert re.search(r"kCorpseInteractHoldMs\s*=\s*(?:[89]\d{2}|1\d{3})", SOURCE)
+    assert "kCorpseInteractHoldMs=900" in source_no_spaces
 
     press = body_of("PressInteractKey")
     assert "hold_ms" in press

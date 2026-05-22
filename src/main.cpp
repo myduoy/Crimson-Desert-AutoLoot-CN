@@ -23,19 +23,22 @@
 
 namespace {
 
-constexpr uint32_t kSupportedBuildTimestamp = 0x6A05DEBA;
-constexpr uintptr_t kPromptUpdateEntryRva = 0x00B94F40;
-constexpr uintptr_t kPromptTextAEntryRva = 0x00B95647;
-constexpr uintptr_t kPromptTextBEntryRva = 0x00B9567F;
-constexpr uintptr_t kPromptBranchRva = 0x00B957B5;
-constexpr uintptr_t kOriginalContinueRva = 0x00B957CD;
-constexpr uintptr_t kSkipPromptRva = 0x00B958B0;
-constexpr uintptr_t kPromptTextAReturnRva = 0x00B9566D;
-constexpr uintptr_t kPromptTextBReturnRva = 0x00B95691;
-constexpr uintptr_t kPromptTextALiteralRva = 0x04A3EA08;
-constexpr uintptr_t kPromptTextACallRva = 0x00A8BBF0;
-constexpr uintptr_t kPromptTextBCallRva = 0x00A8B630;
-constexpr size_t kPatchLen = 23;
+constexpr uint32_t kSupportedBuildTimestamp = 0x6A0FCCDE;
+constexpr uintptr_t kTypeResolverThunkRva = 0x002FB830;
+constexpr uintptr_t kTypeResolverTargetRva = 0x07B028F0;
+constexpr uintptr_t kPromptUpdateEntryRva = 0x00BA2970;
+constexpr uintptr_t kPromptTextAEntryRva = 0x00BA3077;
+constexpr uintptr_t kPromptTextBEntryRva = 0x00BA30AF;
+constexpr uintptr_t kPromptBranchRva = 0x00BA31EF;
+constexpr uintptr_t kOriginalContinueRva = 0x00BA3207;
+constexpr uintptr_t kSkipPromptRva = 0x00BA32FE;
+constexpr uintptr_t kPromptTextAReturnRva = 0x00BA309D;
+constexpr uintptr_t kPromptTextBReturnRva = 0x00BA30C1;
+constexpr uintptr_t kPromptTextALiteralRva = 0x04A99868;
+constexpr uintptr_t kPromptTextACallRva = 0x00A96CB0;
+constexpr uintptr_t kPromptTextBCallRva = 0x00A966F0;
+constexpr size_t kPatchLen = 24;
+constexpr size_t kTypeResolverPatchLen = 5;
 constexpr size_t kPromptUpdatePatchLen = 15;
 constexpr size_t kPromptTextAPatchLen = 0x26;
 constexpr size_t kPromptTextBPatchLen = 0x12;
@@ -44,7 +47,7 @@ constexpr uint32_t kGroundLootType = 1;
 constexpr uint32_t kGroundLootVariantType = 4;
 constexpr uint32_t kGroundLootCurrentType = 5;
 constexpr uint32_t kGroundLootRelicType = 19;
-constexpr uint32_t kCorpseLootTypes[] = {15, 168};
+constexpr uint32_t kCorpseLootTypes[] = {2, 15, 168};
 constexpr uint32_t kHoldInteractTypes[] = {160, 161, 171, 172, 173};
 constexpr WORD kDefaultInteractKey = 'E';
 constexpr DWORD kGroundInteractTapMs = 55;
@@ -183,6 +186,9 @@ volatile LONG g_enabled = 1;
 volatile LONG g_ground_enabled = 1;
 volatile LONG g_corpse_enabled = 1;
 volatile LONG g_debug_log = 1;
+volatile LONG g_install_prompt_text_hooks = 1;
+volatile LONG g_install_prompt_branch_hook = 1;
+volatile LONG g_record_prompt_branch = 1;
 volatile LONG g_game_foreground_only = 1;
 volatile LONG g_pending_ground = 0;
 volatile LONG g_pending_corpse = 0;
@@ -763,6 +769,12 @@ void EnsureDefaultIni() {
                              g_ini_path.c_str());
   WritePrivateProfileStringW(L"General", L"StrictVersionCheck", L"0",
                              g_ini_path.c_str());
+  WritePrivateProfileStringW(L"Debug", L"InstallPromptTextHooks", L"1",
+                             g_ini_path.c_str());
+  WritePrivateProfileStringW(L"Debug", L"InstallPromptBranchHook", L"1",
+                             g_ini_path.c_str());
+  WritePrivateProfileStringW(L"Debug", L"RecordPromptBranch", L"1",
+                             g_ini_path.c_str());
   WritePrivateProfileStringW(L"Features", L"GroundLoot", L"1",
                              g_ini_path.c_str());
   WritePrivateProfileStringW(L"Features", L"CorpseLoot", L"1",
@@ -967,6 +979,12 @@ void LoadConfig() {
       ReadIniInt(L"General", L"ForegroundOnly", 1) ? 1 : 0;
   const int strict =
       ReadIniInt(L"General", L"StrictVersionCheck", 0) ? 1 : 0;
+  const int install_prompt_text_hooks =
+      ReadIniInt(L"Debug", L"InstallPromptTextHooks", 1) ? 1 : 0;
+  const int install_prompt_branch_hook =
+      ReadIniInt(L"Debug", L"InstallPromptBranchHook", 1) ? 1 : 0;
+  const int record_prompt_branch =
+      ReadIniInt(L"Debug", L"RecordPromptBranch", 1) ? 1 : 0;
   int interval = ReadIniInt(L"General", L"TriggerIntervalMs", 650);
   if (interval < 200) interval = 200;
   if (interval > 5000) interval = 5000;
@@ -987,6 +1005,9 @@ void LoadConfig() {
 
   InterlockedExchange(&g_enabled, enabled);
   InterlockedExchange(&g_debug_log, debug);
+  InterlockedExchange(&g_install_prompt_text_hooks, install_prompt_text_hooks);
+  InterlockedExchange(&g_install_prompt_branch_hook, install_prompt_branch_hook);
+  InterlockedExchange(&g_record_prompt_branch, record_prompt_branch);
   InterlockedExchange(&g_game_foreground_only, foreground_only);
   InterlockedExchange(&g_strict_version, strict);
   InterlockedExchange(&g_trigger_interval_ms, interval);
@@ -2268,6 +2289,75 @@ void EmitAbsJump(std::vector<uint8_t>& code, uint64_t target) {
   Emit64(code, target);
 }
 
+bool EncodeRel32(uintptr_t from_after_instruction, uintptr_t target,
+                 int32_t* out) {
+  const int64_t delta = static_cast<int64_t>(target) -
+                        static_cast<int64_t>(from_after_instruction);
+  if (delta < -2147483648LL || delta > 2147483647LL) return false;
+  *out = static_cast<int32_t>(delta);
+  return true;
+}
+
+void EmitRelJumpToAddress(std::vector<uint8_t>& code, uintptr_t code_base,
+                          uintptr_t target) {
+  const size_t offset = code.size();
+  int32_t rel = 0;
+  if (!EncodeRel32(code_base + offset + 5, target, &rel)) return;
+  code.push_back(0xE9);
+  const auto value = static_cast<uint32_t>(rel);
+  Emit32(code, value);
+}
+
+void EmitRelCallToAddress(std::vector<uint8_t>& code, uintptr_t code_base,
+                          uintptr_t target) {
+  const size_t offset = code.size();
+  int32_t rel = 0;
+  if (!EncodeRel32(code_base + offset + 5, target, &rel)) return;
+  code.push_back(0xE8);
+  const auto value = static_cast<uint32_t>(rel);
+  Emit32(code, value);
+}
+
+uintptr_t AlignDown(uintptr_t value, uintptr_t alignment) {
+  return value & ~(alignment - 1);
+}
+
+void* AllocateNear(uintptr_t target, size_t bytes) {
+  SYSTEM_INFO info{};
+  GetSystemInfo(&info);
+  const uintptr_t granularity = info.dwAllocationGranularity;
+  const uintptr_t min_app =
+      reinterpret_cast<uintptr_t>(info.lpMinimumApplicationAddress);
+  const uintptr_t max_app =
+      reinterpret_cast<uintptr_t>(info.lpMaximumApplicationAddress);
+  const uintptr_t max_distance = 0x7FF00000ULL;
+  const uintptr_t raw_lower =
+      target > max_distance ? target - max_distance : min_app;
+  const uintptr_t lower = raw_lower > min_app ? raw_lower : min_app;
+  const uintptr_t upper =
+      target < max_app - max_distance ? target + max_distance : max_app;
+  const uintptr_t start = AlignDown(target, granularity);
+
+  auto try_alloc = [&](uintptr_t address) -> void* {
+    if (address < lower || address > upper) return nullptr;
+    if (address + bytes < address || address + bytes > upper) return nullptr;
+    int32_t rel = 0;
+    if (!EncodeRel32(target + 5, address, &rel)) return nullptr;
+    return VirtualAlloc(reinterpret_cast<void*>(address), bytes,
+                        MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+  };
+
+  for (uintptr_t delta = 0; delta <= max_distance; delta += granularity) {
+    if (start >= delta) {
+      if (void* mem = try_alloc(start - delta)) return mem;
+    }
+    if (start <= max_app - delta) {
+      if (void* mem = try_alloc(start + delta)) return mem;
+    }
+  }
+  return nullptr;
+}
+
 size_t EmitJccRel32Placeholder(std::vector<uint8_t>& code, uint8_t cc) {
   EmitBytes(code, {0x0F, cc});
   const size_t disp = code.size();
@@ -2307,34 +2397,72 @@ void EmitRestoreVolatile(std::vector<uint8_t>& code) {
                    0x5A, 0x59, 0x58});
 }
 
-std::vector<uint8_t> BuildPromptBranchStub() {
+std::vector<uint8_t> BuildPromptBranchStub(uintptr_t stub_base) {
   std::vector<uint8_t> code;
   code.reserve(256);
 
-  EmitSaveVolatile(code);
-  EmitBytes(code, {0x41, 0x0F, 0xB7, 0x4D, 0x10});  // movzx ecx,[r13+10h]
-  EmitBytes(code, {0x48, 0x89, 0xFA, 0x4D, 0x89, 0xE8,
-                   0x4D, 0x89, 0xF1});  // rdx=rdi r8=r13 r9=r14
-  EmitMovRaxImm64(code, reinterpret_cast<uint64_t>(&RecordInteraction));
-  EmitBytes(code, {0xFF, 0xD0});
-  EmitRestoreVolatile(code);
+  if (InterlockedCompareExchange(&g_record_prompt_branch, 0, 0) != 0) {
+    EmitSaveVolatile(code);
+    EmitBytes(code, {0x44, 0x89, 0xF1});  // mov ecx,r14d
+    EmitBytes(code, {0x48, 0x89, 0xFA, 0x4D, 0x89, 0xE8,
+                     0x4D, 0x89, 0xF9});  // rdx=rdi r8=r13 r9=r15
+    EmitMovRaxImm64(code, reinterpret_cast<uint64_t>(&RecordInteraction));
+    EmitBytes(code, {0xFF, 0xD0});
+    EmitRestoreVolatile(code);
+  } else {
+    Log("prompt branch recording disabled by config");
+  }
 
   // Reproduce the exact overwritten game branch. Do not force type 168 into
   // the old autoloot continuation; that route caused the repeated crashes.
-  EmitBytes(code, {0x40, 0x80, 0xFE, 0x02});  // cmp sil,2
-  const size_t jne_not_sil2 = EmitJccRel32Placeholder(code, 0x85);
-  EmitAbsJump(code, g_game + kSkipPromptRva);
+  EmitBytes(code, {0x41, 0x80, 0xFE, 0x02});  // cmp r14b,2
+  const size_t jne_not_type2 = EmitJccRel32Placeholder(code, 0x85);
+  EmitRelJumpToAddress(code, stub_base, g_game + kSkipPromptRva);
 
-  const size_t not_sil2 = code.size();
-  EmitBytes(code, {0x41, 0x80, 0xBE, 0x8E, 0x01, 0x00, 0x00, 0x00});
+  const size_t not_type2 = code.size();
+  EmitBytes(code, {0x41, 0x80, 0xBF, 0x8E, 0x01, 0x00, 0x00, 0x00});
   const size_t jne_skip = EmitJccRel32Placeholder(code, 0x85);
-  EmitAbsJump(code, g_game + kOriginalContinueRva);
+  EmitRelJumpToAddress(code, stub_base, g_game + kOriginalContinueRva);
 
   const size_t skip_prompt = code.size();
-  EmitAbsJump(code, g_game + kSkipPromptRva);
+  EmitRelJumpToAddress(code, stub_base, g_game + kSkipPromptRva);
 
-  PatchRel32(code, jne_not_sil2, not_sil2);
+  PatchRel32(code, jne_not_type2, not_type2);
   PatchRel32(code, jne_skip, skip_prompt);
+  return code;
+}
+
+std::vector<uint8_t> BuildPromptResolverStub(uintptr_t stub_base) {
+  std::vector<uint8_t> code;
+  code.reserve(256);
+
+  EmitBytes(code, {0x48, 0x83, 0xEC, 0x38});        // sub rsp,38h
+  EmitBytes(code, {0x48, 0x89, 0x4C, 0x24, 0x20});  // save input rcx
+  EmitRelCallToAddress(code, stub_base, g_game + kTypeResolverTargetRva);
+
+  if (InterlockedCompareExchange(&g_record_prompt_branch, 0, 0) != 0) {
+    EmitBytes(code, {0x4D, 0x89, 0xEA});            // mov r10,r13
+    EmitBytes(code, {0x49, 0x83, 0xC2, 0x10});      // add r10,10h
+    EmitBytes(code, {0x4C, 0x39, 0x54, 0x24, 0x20});  // cmp [rsp+20h],r10
+    const size_t skip_record = EmitJccRel32Placeholder(code, 0x85);
+
+    EmitSaveVolatile(code);
+    EmitBytes(code, {0x0F, 0xB6, 0x48, 0x67});      // movzx ecx,[rax+67h]
+    EmitBytes(code, {0x48, 0x89, 0xFA});            // rdx=rdi
+    EmitBytes(code, {0x4D, 0x89, 0xE8});            // r8=r13
+    EmitBytes(code, {0x4D, 0x89, 0xF9});            // r9=r15
+    EmitMovRaxImm64(code, reinterpret_cast<uint64_t>(&RecordInteraction));
+    EmitBytes(code, {0xFF, 0xD0});
+    EmitRestoreVolatile(code);
+
+    const size_t done = code.size();
+    PatchRel32(code, skip_record, done);
+  } else {
+    Log("prompt resolver recording disabled by config");
+  }
+
+  EmitBytes(code, {0x48, 0x83, 0xC4, 0x38});        // add rsp,38h
+  EmitBytes(code, {0xC3});                          // ret
   return code;
 }
 
@@ -2361,8 +2489,8 @@ std::vector<uint8_t> BuildPromptTextAStub() {
 
   EmitBytes(code, {0x41, 0x0F, 0xB6, 0x4D, 0x3A});  // movzx ecx,[r13+3Ah]
   EmitBytes(code, {0x49, 0x8B, 0x45, 0x30});        // mov rax,[r13+30h]
-  EmitBytes(code, {0x4D, 0x8D, 0x86, 0x80, 0x01, 0x00,
-                   0x00});                          // lea r8,[r14+180h]
+  EmitBytes(code, {0x4D, 0x8D, 0x87, 0x80, 0x01, 0x00,
+                   0x00});                          // lea r8,[r15+180h]
   EmitBytes(code, {0x88, 0x4C, 0x24, 0x20});        // mov [rsp+20h],cl
   EmitMovR9Imm64(code, g_game + kPromptTextALiteralRva);
   EmitBytes(code, {0x48, 0x8B, 0x10});              // mov rdx,[rax]
@@ -2372,7 +2500,7 @@ std::vector<uint8_t> BuildPromptTextAStub() {
   EmitBytes(code, {0x48, 0x89, 0xD1});              // rcx=text pointer
   EmitBytes(code, {0x4C, 0x89, 0xEA});              // rdx=r13 entry
   EmitBytes(code, {0x4C, 0x8B, 0xC7});              // r8=rdi panel
-  EmitBytes(code, {0x4D, 0x89, 0xF1});              // r9=r14 owner/context
+  EmitBytes(code, {0x4D, 0x89, 0xF9});              // r9=r15 owner/context
   EmitMovRaxImm64(code, reinterpret_cast<uint64_t>(&RecordPromptTextA));
   EmitBytes(code, {0xFF, 0xD0});
   EmitRestoreVolatile(code);
@@ -2396,7 +2524,7 @@ std::vector<uint8_t> BuildPromptTextBStub() {
   EmitBytes(code, {0x48, 0x89, 0xD1});              // rcx=text pointer
   EmitBytes(code, {0x4C, 0x89, 0xEA});              // rdx=r13 entry
   EmitBytes(code, {0x4C, 0x8B, 0xC7});              // r8=rdi panel
-  EmitBytes(code, {0x4D, 0x89, 0xF1});              // r9=r14 owner/context
+  EmitBytes(code, {0x4D, 0x89, 0xF9});              // r9=r15 owner/context
   EmitMovRaxImm64(code, reinterpret_cast<uint64_t>(&RecordPromptTextB));
   EmitBytes(code, {0xFF, 0xD0});
   EmitRestoreVolatile(code);
@@ -2453,10 +2581,10 @@ bool InstallPromptTextHooks() {
   uint8_t* target_a = reinterpret_cast<uint8_t*>(g_game + kPromptTextAEntryRva);
   const uint8_t expected_a[] = {
       0x41, 0x0F, 0xB6, 0x4D, 0x3A, 0x49, 0x8B, 0x45,
-      0x30, 0x4D, 0x8D, 0x86, 0x80, 0x01, 0x00, 0x00,
-      0x88, 0x4C, 0x24, 0x20, 0x4C, 0x8D, 0x0D, 0xA6,
-      0x93, 0xEA, 0x03, 0x48, 0x8B, 0x10, 0x48, 0x8B,
-      0xCF, 0xE8, 0x83, 0x65, 0xEF, 0xFF};
+      0x30, 0x4D, 0x8D, 0x87, 0x80, 0x01, 0x00, 0x00,
+      0x88, 0x4C, 0x24, 0x20, 0x4C, 0x8D, 0x0D, 0xD6,
+      0x67, 0xEF, 0x03, 0x48, 0x8B, 0x10, 0x48, 0x8B,
+      0xCF, 0xE8, 0x13, 0x3C, 0xEF, 0xFF};
   void* stub_a = nullptr;
   const bool ok_a = InstallAbsJumpHook(
       target_a, expected_a, sizeof(expected_a), BuildPromptTextAStub(),
@@ -2465,7 +2593,7 @@ bool InstallPromptTextHooks() {
   uint8_t* target_b = reinterpret_cast<uint8_t*>(g_game + kPromptTextBEntryRva);
   const uint8_t expected_b[] = {0x49, 0x8B, 0x45, 0x40, 0x41, 0xB0,
                                 0x01, 0x48, 0x8B, 0x10, 0x48, 0x8B,
-                                0xCF, 0xE8, 0x9F, 0x5F, 0xEF, 0xFF};
+                                0xCF, 0xE8, 0x2F, 0x36, 0xEF, 0xFF};
   void* stub_b = nullptr;
   const bool ok_b = InstallAbsJumpHook(
       target_b, expected_b, sizeof(expected_b), BuildPromptTextBStub(),
@@ -2520,44 +2648,112 @@ bool InstallPromptUpdateHook() {
   return true;
 }
 
+bool InstallPromptResolverHook() {
+  uint8_t* target = reinterpret_cast<uint8_t*>(g_game + kTypeResolverThunkRva);
+  const uint8_t expected[] = {0xE9, 0xBB, 0x70, 0x80, 0x07};
+  if (std::memcmp(target, expected, sizeof(expected)) != 0) {
+    Log("prompt resolver hook mismatch: target=%p first=%02X %02X %02X %02X",
+        target, target[0], target[1], target[2], target[3]);
+    return false;
+  }
+
+  constexpr size_t kResolverStubReserve = 4096;
+  void* mem = AllocateNear(reinterpret_cast<uintptr_t>(target),
+                           kResolverStubReserve);
+  if (!mem) {
+    Log("near resolver stub VirtualAlloc failed: %lu", GetLastError());
+    return false;
+  }
+  std::vector<uint8_t> stub =
+      BuildPromptResolverStub(reinterpret_cast<uintptr_t>(mem));
+  if (stub.empty() || stub.size() > kResolverStubReserve) {
+    Log("resolver stub build failed: size=%zu reserve=%zu", stub.size(),
+        kResolverStubReserve);
+    VirtualFree(mem, 0, MEM_RELEASE);
+    return false;
+  }
+  std::memcpy(mem, stub.data(), stub.size());
+
+  std::vector<uint8_t> patch(kTypeResolverPatchLen, 0x90);
+  patch[0] = 0xE9;
+  int32_t rel = 0;
+  if (!EncodeRel32(reinterpret_cast<uintptr_t>(target) + 5,
+                   reinterpret_cast<uintptr_t>(mem), &rel)) {
+    Log("near resolver stub out of rel32 range: target=%p stub=%p", target, mem);
+    VirtualFree(mem, 0, MEM_RELEASE);
+    return false;
+  }
+  std::memcpy(patch.data() + 1, &rel, sizeof(rel));
+
+  DWORD old_protect = 0;
+  if (!VirtualProtect(target, patch.size(), PAGE_EXECUTE_READWRITE,
+                      &old_protect)) {
+    Log("prompt resolver VirtualProtect failed: %lu", GetLastError());
+    VirtualFree(mem, 0, MEM_RELEASE);
+    return false;
+  }
+  std::memcpy(target, patch.data(), patch.size());
+  DWORD unused = 0;
+  VirtualProtect(target, patch.size(), old_protect, &unused);
+  FlushInstructionCache(GetCurrentProcess(), target, patch.size());
+  FlushInstructionCache(GetCurrentProcess(), mem, stub.size());
+  InterlockedExchange(&g_installed, 1);
+  Log("prompt resolver hook installed: target=%p stub=%p size=%zu", target, mem,
+      stub.size());
+  return true;
+}
+
 bool InstallPromptBranchHook() {
   uint8_t* target = reinterpret_cast<uint8_t*>(g_game + kPromptBranchRva);
   const uint8_t expected[] = {
-      0x40, 0x80, 0xFE, 0x02, 0x0F, 0x84, 0xF1, 0x00,
-      0x00, 0x00, 0x41, 0x80, 0xBE, 0x8E, 0x01, 0x00,
-      0x00, 0x00, 0x0F, 0x85, 0xE3, 0x00, 0x00};
+      0x41, 0x80, 0xFE, 0x02, 0x0F, 0x84, 0x05, 0x01,
+      0x00, 0x00, 0x41, 0x80, 0xBF, 0x8E, 0x01, 0x00,
+      0x00, 0x00, 0x0F, 0x85, 0xF7, 0x00, 0x00, 0x00};
   if (std::memcmp(target, expected, sizeof(expected)) != 0) {
     Log("hook point mismatch: target=%p first=%02X %02X %02X %02X",
         target, target[0], target[1], target[2], target[3]);
     return false;
   }
 
-  std::vector<uint8_t> stub = BuildPromptBranchStub();
-  void* mem = VirtualAlloc(nullptr, stub.size(), MEM_COMMIT | MEM_RESERVE,
-                           PAGE_EXECUTE_READWRITE);
+  constexpr size_t kBranchStubReserve = 4096;
+  void* mem = AllocateNear(reinterpret_cast<uintptr_t>(target),
+                           kBranchStubReserve);
   if (!mem) {
-    Log("VirtualAlloc failed: %lu", GetLastError());
+    Log("near branch stub VirtualAlloc failed: %lu", GetLastError());
+    return false;
+  }
+  std::vector<uint8_t> stub =
+      BuildPromptBranchStub(reinterpret_cast<uintptr_t>(mem));
+  if (stub.empty() || stub.size() > kBranchStubReserve) {
+    Log("branch stub build failed: size=%zu reserve=%zu", stub.size(),
+        kBranchStubReserve);
+    VirtualFree(mem, 0, MEM_RELEASE);
     return false;
   }
   std::memcpy(mem, stub.data(), stub.size());
 
-  uint8_t patch[kPatchLen]{};
-  patch[0] = 0xFF;
-  patch[1] = 0x25;
-  *reinterpret_cast<uint32_t*>(patch + 2) = 0;
-  *reinterpret_cast<uint64_t*>(patch + 6) = reinterpret_cast<uint64_t>(mem);
-  for (size_t i = 14; i < sizeof(patch); ++i) patch[i] = 0x90;
-
-  DWORD old_protect = 0;
-  if (!VirtualProtect(target, sizeof(patch), PAGE_EXECUTE_READWRITE,
-                      &old_protect)) {
-    Log("VirtualProtect failed: %lu", GetLastError());
+  std::vector<uint8_t> patch(kPatchLen, 0x90);
+  patch[0] = 0xE9;
+  int32_t rel = 0;
+  if (!EncodeRel32(reinterpret_cast<uintptr_t>(target) + 5,
+                   reinterpret_cast<uintptr_t>(mem), &rel)) {
+    Log("near branch stub out of rel32 range: target=%p stub=%p", target, mem);
+    VirtualFree(mem, 0, MEM_RELEASE);
     return false;
   }
-  std::memcpy(target, patch, sizeof(patch));
+  std::memcpy(patch.data() + 1, &rel, sizeof(rel));
+
+  DWORD old_protect = 0;
+  if (!VirtualProtect(target, patch.size(), PAGE_EXECUTE_READWRITE,
+                      &old_protect)) {
+    Log("VirtualProtect failed: %lu", GetLastError());
+    VirtualFree(mem, 0, MEM_RELEASE);
+    return false;
+  }
+  std::memcpy(target, patch.data(), patch.size());
   DWORD unused = 0;
-  VirtualProtect(target, sizeof(patch), old_protect, &unused);
-  FlushInstructionCache(GetCurrentProcess(), target, sizeof(patch));
+  VirtualProtect(target, patch.size(), old_protect, &unused);
+  FlushInstructionCache(GetCurrentProcess(), target, patch.size());
   FlushInstructionCache(GetCurrentProcess(), mem, stub.size());
   InterlockedExchange(&g_installed, 1);
   Log("hook installed: target=%p stub=%p size=%zu", target, mem, stub.size());
@@ -2961,11 +3157,24 @@ DWORD WINAPI WorkerThread(void*) {
       InterlockedCompareExchange(&g_trigger_interval_ms, 0, 0),
       static_cast<char>(InterlockedCompareExchange(&g_interact_key, 0, 0)),
       InterlockedCompareExchange(&g_game_foreground_only, 0, 0));
+  Log("hook config prompt_text=%ld branch=%ld branch_record=%ld",
+      InterlockedCompareExchange(&g_install_prompt_text_hooks, 0, 0),
+      InterlockedCompareExchange(&g_install_prompt_branch_hook, 0, 0),
+      InterlockedCompareExchange(&g_record_prompt_branch, 0, 0));
 
   Sleep(2500);
-  InstallPromptTextHooks();
+  LoadConfig();
+  if (InterlockedCompareExchange(&g_install_prompt_text_hooks, 0, 0) != 0) {
+    InstallPromptTextHooks();
+  } else {
+    Log("prompt text hooks disabled by config");
+  }
   Log("prompt update hook disabled: using stable branch hook only");
-  InstallPromptBranchHook();
+  if (InterlockedCompareExchange(&g_install_prompt_branch_hook, 0, 0) != 0) {
+    InstallPromptResolverHook();
+  } else {
+    Log("prompt branch hook disabled by config");
+  }
 
   ULONGLONG last_config_check = GetTickCount64();
   ULONGLONG last_config_write_time = ConfigWriteTime();

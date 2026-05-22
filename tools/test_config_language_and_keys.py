@@ -107,6 +107,35 @@ def test_in_game_status_toasts_follow_language_setting() -> None:
     assert "Config window: opened" in config
 
 
+def test_hook_diagnostic_toggles_are_configurable() -> None:
+    assert re.search(r"(?m)^InstallPromptTextHooks=1$", DEFAULTS)
+    assert re.search(r"(?m)^InstallPromptBranchHook=1$", DEFAULTS)
+    assert re.search(r"(?m)^RecordPromptBranch=1$", DEFAULTS)
+    assert "g_install_prompt_text_hooks" in MAIN
+    assert "g_install_prompt_branch_hook" in MAIN
+    assert "g_record_prompt_branch" in MAIN
+
+    load = body_of(MAIN, "LoadConfig")
+    assert 'ReadIniInt(L"Debug", L"InstallPromptTextHooks", 1)' in load
+    assert 'ReadIniInt(L"Debug", L"InstallPromptBranchHook", 1)' in load
+    assert 'ReadIniInt(L"Debug", L"RecordPromptBranch", 1)' in load
+
+    worker = body_of(MAIN, "WorkerThread")
+    assert "InstallPromptTextHooks()" in worker
+    assert "InstallPromptResolverHook()" in worker
+    assert "InstallPromptBranchHook()" not in worker
+    assert "g_install_prompt_text_hooks" in worker
+    assert "g_install_prompt_branch_hook" in worker
+    assert "g_record_prompt_branch" in worker
+
+
+def test_default_toggle_hotkey_is_f9() -> None:
+    assert re.search(r"(?m)^ToggleHotkey=F9$", DEFAULTS)
+    assert 'ReadHotkey(L"ToggleHotkey", L"F9", Hotkey{VK_F9, 0})' in MAIN
+    assert "volatile LONG g_toggle_hotkey_mods = 0" in MAIN
+    assert 'L"F9"' in UI
+
+
 if __name__ == "__main__":
     test_interact_key_uses_full_key_parser_not_first_character()
     test_config_ui_saves_normalized_interact_key_names()
@@ -114,4 +143,6 @@ if __name__ == "__main__":
     test_config_ui_integer_reads_share_manual_ini_fallback()
     test_ui_item_and_category_text_can_switch_to_english()
     test_in_game_status_toasts_follow_language_setting()
+    test_hook_diagnostic_toggles_are_configurable()
+    test_default_toggle_hotkey_is_f9()
     print("config language and key tests passed")

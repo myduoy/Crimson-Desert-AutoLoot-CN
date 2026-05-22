@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.1.13
+
+- Updated the supported Crimson Desert build timestamp for the May 22, 2026 game update.
+- Updated prompt update, prompt text A/B, prompt branch, skip target, literal target, and call target constants for the current installed game executable.
+- Updated prompt text and branch hook stubs for the current compiler register allocation around the prompt owner/context.
+- Added the current-client corpse prompt interaction `type 2` to the long-hold corpse loot path.
+- Expanded hook regression coverage for prompt update and branch expected bytes.
+- Updated release binaries.
+
 ## v0.1.12
 
 - Updated the supported Crimson Desert build timestamp for the May 15, 2026 game update.
