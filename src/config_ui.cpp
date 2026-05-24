@@ -59,14 +59,28 @@ enum ControlId {
   IDC_CAT_TRADE,
   IDC_CAT_AMMO,
   IDC_CAT_QUEST,
-  IDC_CAT_WEAPON,
-  IDC_CAT_ARMOR,
-  IDC_CAT_ACCESSORY,
+  IDC_CAT_ONE_HAND_WEAPON,
+  IDC_CAT_TWO_HAND_WEAPON,
+  IDC_CAT_BOW,
+  IDC_CAT_SHIELD,
+  IDC_CAT_TOWER_SHIELD,
+  IDC_CAT_HELMET,
+  IDC_CAT_CHEST_ARMOR,
+  IDC_CAT_GLOVES,
+  IDC_CAT_BOOTS,
+  IDC_CAT_CLOAK,
+  IDC_CAT_RING,
+  IDC_CAT_NECKLACE,
+  IDC_CAT_EARRING,
+  IDC_CAT_BRACELET,
+  IDC_CAT_HEAD_ACCESSORY,
+  IDC_CAT_FACE_ACCESSORY,
   IDC_CAT_TOOL,
   IDC_CAT_HORSE_GEAR,
   IDC_CAT_PET_GEAR,
   IDC_CAT_VEHICLE_GEAR,
-  IDC_CAT_EQUIPMENT,
+  IDC_CAT_BACKPACK,
+  IDC_CAT_ABYSS_GEAR,
   IDC_CAT_MISC,
   IDC_LABEL_TITLE = 1400,
   IDC_LABEL_INTERACT_KEY,
@@ -106,14 +120,28 @@ const CategoryControl kCategories[] = {
     {IDC_CAT_TRADE, L"Trade", L"\u8d38\u6613\u54c1", L"Trade"},
     {IDC_CAT_AMMO, L"Ammo", L"\u5f39\u836f", L"Ammo"},
     {IDC_CAT_QUEST, L"Quest", L"\u4efb\u52a1\u7269\u54c1", L"Quest"},
-    {IDC_CAT_WEAPON, L"Weapon", L"\u6b66\u5668", L"Weapon"},
-    {IDC_CAT_ARMOR, L"Armor", L"\u9632\u5177", L"Armor"},
-    {IDC_CAT_ACCESSORY, L"Accessory", L"\u9970\u54c1", L"Accessory"},
+    {IDC_CAT_ONE_HAND_WEAPON, L"OneHandWeapon", L"\u5355\u624b\u6b66\u5668", L"One-Hand Weapons"},
+    {IDC_CAT_TWO_HAND_WEAPON, L"TwoHandWeapon", L"\u53cc\u624b\u6b66\u5668", L"Two-Hand Weapons"},
+    {IDC_CAT_BOW, L"Bow", L"\u5f13/\u5f29", L"Bows / Crossbows"},
+    {IDC_CAT_SHIELD, L"Shield", L"\u76fe\u724c", L"Shields"},
+    {IDC_CAT_TOWER_SHIELD, L"TowerShield", L"\u5927\u578b\u76fe\u724c", L"Tower Shields"},
+    {IDC_CAT_HELMET, L"Helmet", L"\u5934\u76d4", L"Helmets"},
+    {IDC_CAT_CHEST_ARMOR, L"ChestArmor", L"\u80f8\u7532/\u670d\u88c5", L"Chest Armor"},
+    {IDC_CAT_GLOVES, L"Gloves", L"\u624b\u5957", L"Gloves"},
+    {IDC_CAT_BOOTS, L"Boots", L"\u978b\u5b50", L"Boots"},
+    {IDC_CAT_CLOAK, L"Cloak", L"\u62ab\u98ce", L"Cloaks"},
+    {IDC_CAT_RING, L"Ring", L"\u6212\u6307", L"Rings"},
+    {IDC_CAT_NECKLACE, L"Necklace", L"\u9879\u94fe", L"Necklaces"},
+    {IDC_CAT_EARRING, L"Earring", L"\u8033\u73af", L"Earrings"},
+    {IDC_CAT_BRACELET, L"Bracelet", L"\u624b\u956f", L"Bracelets"},
+    {IDC_CAT_HEAD_ACCESSORY, L"HeadAccessory", L"\u5934\u9970", L"Head Accessories"},
+    {IDC_CAT_FACE_ACCESSORY, L"FaceAccessory", L"\u9762\u9970", L"Face Accessories"},
     {IDC_CAT_TOOL, L"Tool", L"\u5de5\u5177", L"Tool"},
     {IDC_CAT_HORSE_GEAR, L"HorseGear", L"\u9a6c\u5177", L"Horse Gear"},
     {IDC_CAT_PET_GEAR, L"PetGear", L"\u5ba0\u7269\u88c5\u5907", L"Pet Gear"},
     {IDC_CAT_VEHICLE_GEAR, L"VehicleGear", L"\u8f7d\u5177\u88c5\u5907", L"Vehicle Gear"},
-    {IDC_CAT_EQUIPMENT, L"Equipment", L"\u5176\u4ed6\u88c5\u5907", L"Equipment"},
+    {IDC_CAT_BACKPACK, L"Backpack", L"\u80cc\u56ca", L"Backpacks"},
+    {IDC_CAT_ABYSS_GEAR, L"AbyssGear", L"\u963f\u6bd4\u65af\u88c5\u5907", L"Abyss Gear"},
     {IDC_CAT_MISC, L"Misc", L"\u6742\u9879", L"Misc"},
 };
 constexpr size_t kCategoryCount = sizeof(kCategories) / sizeof(kCategories[0]);
@@ -541,6 +569,24 @@ std::wstring CategoryDisplay(const std::wstring& key) {
   return IsEnglishUi() ? category->english_label : category->label;
 }
 
+bool CategoryDefaultChecked(const wchar_t* key) {
+  if (!key) return true;
+  return lstrcmpW(key, L"Unknown") != 0 &&
+         lstrcmpW(key, L"Consumable") != 0 &&
+         lstrcmpW(key, L"Food") != 0 &&
+         lstrcmpW(key, L"Recipe") != 0 &&
+         lstrcmpW(key, L"Document") != 0 &&
+         lstrcmpW(key, L"Trade") != 0 &&
+         lstrcmpW(key, L"Ammo") != 0 &&
+         lstrcmpW(key, L"Quest") != 0 &&
+         lstrcmpW(key, L"HorseGear") != 0 &&
+         lstrcmpW(key, L"PetGear") != 0 &&
+         lstrcmpW(key, L"VehicleGear") != 0 &&
+         lstrcmpW(key, L"Backpack") != 0 &&
+         lstrcmpW(key, L"Misc") != 0 &&
+         lstrcmpW(key, L"Equipment") != 0;
+}
+
 std::wstring ToLower(std::wstring text) {
   for (wchar_t& ch : text) ch = static_cast<wchar_t>(std::towlower(ch));
   return text;
@@ -840,8 +886,9 @@ void EnsureIniDefaults() {
   WritePrivateProfileStringW(L"ItemFilter", L"Enabled", L"1",
                              g_ini_path.c_str());
   for (const auto& category : kCategories) {
-    WritePrivateProfileStringW(L"ItemFilter", category.key, L"1",
-                               g_ini_path.c_str());
+    WritePrivateProfileStringW(
+        L"ItemFilter", category.key,
+        CategoryDefaultChecked(category.key) ? L"1" : L"0", g_ini_path.c_str());
   }
 }
 
@@ -978,8 +1025,9 @@ void LoadConfigToUi() {
 
   for (const auto& category : kCategories) {
     const size_t index = static_cast<size_t>(&category - kCategories);
+    const int fallback = CategoryDefaultChecked(category.key) ? 1 : 0;
     g_category_enabled_ui[index] =
-        ReadIniInt(L"ItemFilter", category.key, 1) != 0;
+        ReadIniInt(L"ItemFilter", category.key, fallback) != 0;
   }
 
   RefreshCategoryList();

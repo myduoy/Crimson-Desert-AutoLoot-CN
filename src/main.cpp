@@ -47,7 +47,7 @@ constexpr uint32_t kGroundLootType = 1;
 constexpr uint32_t kGroundLootVariantType = 4;
 constexpr uint32_t kGroundLootCurrentType = 5;
 constexpr uint32_t kGroundLootRelicType = 19;
-constexpr uint32_t kCorpseLootTypes[] = {2, 15, 168};
+constexpr uint32_t kCorpseLootTypes[] = {15, 168};
 constexpr uint32_t kHoldInteractTypes[] = {160, 161, 171, 172, 173};
 constexpr WORD kDefaultInteractKey = 'E';
 constexpr DWORD kGroundInteractTapMs = 55;
@@ -72,15 +72,33 @@ enum ItemCategory : uint8_t {
   kCatTrade,
   kCatAmmo,
   kCatQuest,
-  kCatWeapon,
-  kCatArmor,
-  kCatAccessory,
+  kCatOneHandWeapon,
+  kCatTwoHandWeapon,
+  kCatBow,
+  kCatShield,
+  kCatTowerShield,
+  kCatHelmet,
+  kCatChestArmor,
+  kCatGloves,
+  kCatBoots,
+  kCatCloak,
+  kCatRing,
+  kCatNecklace,
+  kCatEarring,
+  kCatBracelet,
+  kCatHeadAccessory,
+  kCatFaceAccessory,
   kCatTool,
   kCatHorseGear,
   kCatPetGear,
   kCatVehicleGear,
-  kCatEquipment,
+  kCatBackpack,
+  kCatAbyssGear,
   kCatMisc,
+  kCatWeapon,
+  kCatArmor,
+  kCatAccessory,
+  kCatEquipment,
   kCatCount
 };
 
@@ -221,12 +239,14 @@ volatile LONG g_last_ground_item_unique_keys = 0;
 volatile LONG g_last_ground_item_confirmed = 0;
 volatile LONG g_last_ground_item_text_match = 0;
 volatile LONG g_last_interaction_type = 0;
+volatile LONG g_recent_ground_prompt_action = 0;
 volatile LONG g_recent_corpse_prompt_action = 0;
 volatile LONG g_last_corpse_fallback_type = 0;
 volatile LONG g_last_prompt_item_key = 0;
 volatile LONG g_last_prompt_queue_key = 0;
 volatile LONG g_last_corpse_prompt_source = 0;
 volatile LONG64 g_last_prompt_queue_tick = 0;
+volatile LONG64 g_recent_ground_prompt_tick = 0;
 volatile LONG64 g_recent_corpse_prompt_tick = 0;
 volatile LONG64 g_last_corpse_prompt_entry = 0;
 volatile LONG64 g_last_corpse_prompt_owner = 0;
@@ -486,12 +506,38 @@ const char* CategoryName(uint8_t category) {
       return "Ammo";
     case kCatQuest:
       return "Quest";
-    case kCatWeapon:
-      return "Weapon";
-    case kCatArmor:
-      return "Armor";
-    case kCatAccessory:
-      return "Accessory";
+    case kCatOneHandWeapon:
+      return "OneHandWeapon";
+    case kCatTwoHandWeapon:
+      return "TwoHandWeapon";
+    case kCatBow:
+      return "Bow";
+    case kCatShield:
+      return "Shield";
+    case kCatTowerShield:
+      return "TowerShield";
+    case kCatHelmet:
+      return "Helmet";
+    case kCatChestArmor:
+      return "ChestArmor";
+    case kCatGloves:
+      return "Gloves";
+    case kCatBoots:
+      return "Boots";
+    case kCatCloak:
+      return "Cloak";
+    case kCatRing:
+      return "Ring";
+    case kCatNecklace:
+      return "Necklace";
+    case kCatEarring:
+      return "Earring";
+    case kCatBracelet:
+      return "Bracelet";
+    case kCatHeadAccessory:
+      return "HeadAccessory";
+    case kCatFaceAccessory:
+      return "FaceAccessory";
     case kCatTool:
       return "Tool";
     case kCatHorseGear:
@@ -500,10 +546,20 @@ const char* CategoryName(uint8_t category) {
       return "PetGear";
     case kCatVehicleGear:
       return "VehicleGear";
-    case kCatEquipment:
-      return "Equipment";
+    case kCatBackpack:
+      return "Backpack";
+    case kCatAbyssGear:
+      return "AbyssGear";
     case kCatMisc:
       return "Misc";
+    case kCatWeapon:
+      return "Weapon";
+    case kCatArmor:
+      return "Armor";
+    case kCatAccessory:
+      return "Accessory";
+    case kCatEquipment:
+      return "Equipment";
     default:
       return "Unknown";
   }
@@ -529,12 +585,38 @@ const wchar_t* CategoryKey(uint8_t category) {
       return L"Ammo";
     case kCatQuest:
       return L"Quest";
-    case kCatWeapon:
-      return L"Weapon";
-    case kCatArmor:
-      return L"Armor";
-    case kCatAccessory:
-      return L"Accessory";
+    case kCatOneHandWeapon:
+      return L"OneHandWeapon";
+    case kCatTwoHandWeapon:
+      return L"TwoHandWeapon";
+    case kCatBow:
+      return L"Bow";
+    case kCatShield:
+      return L"Shield";
+    case kCatTowerShield:
+      return L"TowerShield";
+    case kCatHelmet:
+      return L"Helmet";
+    case kCatChestArmor:
+      return L"ChestArmor";
+    case kCatGloves:
+      return L"Gloves";
+    case kCatBoots:
+      return L"Boots";
+    case kCatCloak:
+      return L"Cloak";
+    case kCatRing:
+      return L"Ring";
+    case kCatNecklace:
+      return L"Necklace";
+    case kCatEarring:
+      return L"Earring";
+    case kCatBracelet:
+      return L"Bracelet";
+    case kCatHeadAccessory:
+      return L"HeadAccessory";
+    case kCatFaceAccessory:
+      return L"FaceAccessory";
     case kCatTool:
       return L"Tool";
     case kCatHorseGear:
@@ -543,10 +625,20 @@ const wchar_t* CategoryKey(uint8_t category) {
       return L"PetGear";
     case kCatVehicleGear:
       return L"VehicleGear";
-    case kCatEquipment:
-      return L"Equipment";
+    case kCatBackpack:
+      return L"Backpack";
+    case kCatAbyssGear:
+      return L"AbyssGear";
     case kCatMisc:
       return L"Misc";
+    case kCatWeapon:
+      return L"Weapon";
+    case kCatArmor:
+      return L"Armor";
+    case kCatAccessory:
+      return L"Accessory";
+    case kCatEquipment:
+      return L"Equipment";
     default:
       return L"Unknown";
   }
@@ -568,15 +660,33 @@ uint8_t ParseCategory(const char* value) {
   if (std::strcmp(lower, "trade") == 0) return kCatTrade;
   if (std::strcmp(lower, "ammo") == 0) return kCatAmmo;
   if (std::strcmp(lower, "quest") == 0) return kCatQuest;
-  if (std::strcmp(lower, "weapon") == 0) return kCatWeapon;
-  if (std::strcmp(lower, "armor") == 0) return kCatArmor;
-  if (std::strcmp(lower, "accessory") == 0) return kCatAccessory;
+  if (std::strcmp(lower, "onehandweapon") == 0) return kCatOneHandWeapon;
+  if (std::strcmp(lower, "twohandweapon") == 0) return kCatTwoHandWeapon;
+  if (std::strcmp(lower, "bow") == 0) return kCatBow;
+  if (std::strcmp(lower, "shield") == 0) return kCatShield;
+  if (std::strcmp(lower, "towershield") == 0) return kCatTowerShield;
+  if (std::strcmp(lower, "helmet") == 0) return kCatHelmet;
+  if (std::strcmp(lower, "chestarmor") == 0) return kCatChestArmor;
+  if (std::strcmp(lower, "gloves") == 0) return kCatGloves;
+  if (std::strcmp(lower, "boots") == 0) return kCatBoots;
+  if (std::strcmp(lower, "cloak") == 0) return kCatCloak;
+  if (std::strcmp(lower, "ring") == 0) return kCatRing;
+  if (std::strcmp(lower, "necklace") == 0) return kCatNecklace;
+  if (std::strcmp(lower, "earring") == 0) return kCatEarring;
+  if (std::strcmp(lower, "bracelet") == 0) return kCatBracelet;
+  if (std::strcmp(lower, "headaccessory") == 0) return kCatHeadAccessory;
+  if (std::strcmp(lower, "faceaccessory") == 0) return kCatFaceAccessory;
   if (std::strcmp(lower, "tool") == 0) return kCatTool;
   if (std::strcmp(lower, "horsegear") == 0) return kCatHorseGear;
   if (std::strcmp(lower, "petgear") == 0) return kCatPetGear;
   if (std::strcmp(lower, "vehiclegear") == 0) return kCatVehicleGear;
-  if (std::strcmp(lower, "equipment") == 0) return kCatEquipment;
+  if (std::strcmp(lower, "backpack") == 0) return kCatBackpack;
+  if (std::strcmp(lower, "abyssgear") == 0) return kCatAbyssGear;
   if (std::strcmp(lower, "misc") == 0) return kCatMisc;
+  if (std::strcmp(lower, "weapon") == 0) return kCatWeapon;
+  if (std::strcmp(lower, "armor") == 0) return kCatArmor;
+  if (std::strcmp(lower, "accessory") == 0) return kCatAccessory;
+  if (std::strcmp(lower, "equipment") == 0) return kCatEquipment;
   return kCatUnknown;
 }
 
@@ -742,6 +852,28 @@ void AddItemNameRef(const std::wstring& name, uint32_t key, uint8_t category) {
   g_item_names.push_back({name, WideToUtf8(name), key, category});
 }
 
+bool CategoryDefaultEnabled(uint8_t category) {
+  switch (category) {
+    case kCatUnknown:
+    case kCatConsumable:
+    case kCatFood:
+    case kCatRecipe:
+    case kCatDocument:
+    case kCatTrade:
+    case kCatAmmo:
+    case kCatQuest:
+    case kCatHorseGear:
+    case kCatPetGear:
+    case kCatVehicleGear:
+    case kCatBackpack:
+    case kCatMisc:
+    case kCatEquipment:
+      return false;
+    default:
+      return true;
+  }
+}
+
 void EnsureDefaultIni() {
   if (GetFileAttributesW(g_ini_path.c_str()) != INVALID_FILE_ATTRIBUTES) {
     return;
@@ -781,44 +913,11 @@ void EnsureDefaultIni() {
                              g_ini_path.c_str());
   WritePrivateProfileStringW(L"ItemFilter", L"Enabled", L"1",
                              g_ini_path.c_str());
-  WritePrivateProfileStringW(L"ItemFilter", L"Unknown", L"1",
-                             g_ini_path.c_str());
-  WritePrivateProfileStringW(L"ItemFilter", L"Currency", L"1",
-                             g_ini_path.c_str());
-  WritePrivateProfileStringW(L"ItemFilter", L"Material", L"1",
-                             g_ini_path.c_str());
-  WritePrivateProfileStringW(L"ItemFilter", L"Consumable", L"1",
-                             g_ini_path.c_str());
-  WritePrivateProfileStringW(L"ItemFilter", L"Food", L"1",
-                             g_ini_path.c_str());
-  WritePrivateProfileStringW(L"ItemFilter", L"Recipe", L"1",
-                             g_ini_path.c_str());
-  WritePrivateProfileStringW(L"ItemFilter", L"Document", L"1",
-                             g_ini_path.c_str());
-  WritePrivateProfileStringW(L"ItemFilter", L"Trade", L"1",
-                             g_ini_path.c_str());
-  WritePrivateProfileStringW(L"ItemFilter", L"Ammo", L"1",
-                             g_ini_path.c_str());
-  WritePrivateProfileStringW(L"ItemFilter", L"Quest", L"1",
-                             g_ini_path.c_str());
-  WritePrivateProfileStringW(L"ItemFilter", L"Weapon", L"1",
-                             g_ini_path.c_str());
-  WritePrivateProfileStringW(L"ItemFilter", L"Armor", L"1",
-                             g_ini_path.c_str());
-  WritePrivateProfileStringW(L"ItemFilter", L"Accessory", L"1",
-                             g_ini_path.c_str());
-  WritePrivateProfileStringW(L"ItemFilter", L"Tool", L"1",
-                             g_ini_path.c_str());
-  WritePrivateProfileStringW(L"ItemFilter", L"HorseGear", L"1",
-                             g_ini_path.c_str());
-  WritePrivateProfileStringW(L"ItemFilter", L"PetGear", L"1",
-                             g_ini_path.c_str());
-  WritePrivateProfileStringW(L"ItemFilter", L"VehicleGear", L"1",
-                             g_ini_path.c_str());
-  WritePrivateProfileStringW(L"ItemFilter", L"Equipment", L"1",
-                             g_ini_path.c_str());
-  WritePrivateProfileStringW(L"ItemFilter", L"Misc", L"1",
-                             g_ini_path.c_str());
+  for (uint8_t category = 0; category < kCatCount; ++category) {
+    WritePrivateProfileStringW(
+        L"ItemFilter", CategoryKey(category),
+        CategoryDefaultEnabled(category) ? L"1" : L"0", g_ini_path.c_str());
+  }
 }
 
 void LoadBlockedItems() {
@@ -1022,7 +1121,9 @@ void LoadConfig() {
   InterlockedExchange(&g_corpse_enabled, corpse);
   InterlockedExchange(&g_item_filter_enabled, filter_enabled);
   for (uint8_t category = 0; category < kCatCount; ++category) {
-    const int value = ReadIniInt(L"ItemFilter", CategoryKey(category), 1) ? 1 : 0;
+    const int fallback = CategoryDefaultEnabled(category) ? 1 : 0;
+    const int value =
+        ReadIniInt(L"ItemFilter", CategoryKey(category), fallback) ? 1 : 0;
     InterlockedExchange(&g_category_enabled[category], value);
   }
   LoadBlockedItems();
@@ -1052,6 +1153,7 @@ bool IsGameForeground() {
 bool IsReadableMemory(uintptr_t address, size_t bytes, bool heap_only = false);
 bool IsItemCategoryAllowed(uint8_t category);
 bool IsItemBlocked(uint32_t key);
+bool HasRecentGroundPromptAction(ULONGLONG now);
 bool HasRecentCorpsePromptAction(ULONGLONG now);
 
 bool IsReliableFilteredGroundItem(const ItemResolveResult& item) {
@@ -1062,6 +1164,27 @@ bool IsReliableFilteredGroundItem(const ItemResolveResult& item) {
 bool IsGroundLootType(uint32_t type) {
   return type == kGroundLootType || type == kGroundLootVariantType ||
          type == kGroundLootCurrentType || type == kGroundLootRelicType;
+}
+
+bool IsPromptGatedGroundType(uint32_t type) {
+  return type == 2;
+}
+
+bool IsPromptGatedGroundCategoryAllowed(uint8_t category) {
+  switch (category) {
+    case kCatUnknown:
+    case kCatMisc:
+      return false;
+    default:
+      return true;
+  }
+}
+
+bool IsGroundInteraction(uint32_t type, ULONGLONG now) {
+  (void)now;
+  if (IsGroundLootType(type)) return true;
+  if (IsPromptGatedGroundType(type)) return true;
+  return false;
 }
 
 bool ShouldFallbackGroundTypeToCorpse(uint32_t type, ULONGLONG now,
@@ -1090,6 +1213,10 @@ bool IsHoldInteractType(uint32_t type) {
     if (type == hold_type) return true;
   }
   return false;
+}
+
+bool IsPromptGatedCorpseType(uint32_t type) {
+  return type == 2;
 }
 
 bool IsUnsafePromptActionFallbackType(uint32_t type) {
@@ -1130,6 +1257,15 @@ bool IsUnsafePromptActionFallbackType(uint32_t type) {
   }
 }
 
+bool HasRecentGroundPromptAction(ULONGLONG now) {
+  if (InterlockedCompareExchange(&g_recent_ground_prompt_action, 0, 0) == 0) {
+    return false;
+  }
+  const ULONGLONG tick = static_cast<ULONGLONG>(
+      InterlockedCompareExchange64(&g_recent_ground_prompt_tick, 0, 0));
+  return tick != 0 && now >= tick && now - tick <= kPromptActionMatchTtlMs;
+}
+
 bool HasRecentCorpsePromptAction(ULONGLONG now) {
   if (InterlockedCompareExchange(&g_recent_corpse_prompt_action, 0, 0) == 0) {
     return false;
@@ -1142,6 +1278,9 @@ bool HasRecentCorpsePromptAction(ULONGLONG now) {
 bool IsCorpseInteraction(uint32_t type, ULONGLONG now) {
   if (IsCorpseLootType(type)) return true;
   if (IsHoldInteractType(type)) return true;
+  if (IsPromptGatedCorpseType(type)) {
+    return HasRecentCorpsePromptAction(now) && !HasRecentGroundPromptAction(now);
+  }
   if (IsUnsafePromptActionFallbackType(type)) return false;
   const bool matched = HasRecentCorpsePromptAction(now);
   if (matched) {
@@ -1221,7 +1360,7 @@ bool IsCorpsePromptActionText(const std::wstring& raw) {
   const std::wstring text = TrimWideCopy(raw);
   if (text.empty()) return false;
   if (text == L"\x7FFB\x627E" || text == L"\x641C\x522E" ||
-      text == L"\x641C\x7D22") {
+      text == L"\x641C\x7D22" || text == L"\x5265\x76AE") {
     return true;
   }
 
@@ -1229,7 +1368,21 @@ bool IsCorpsePromptActionText(const std::wstring& raw) {
   std::transform(lower.begin(), lower.end(), lower.begin(),
                  [](wchar_t ch) { return static_cast<wchar_t>(towlower(ch)); });
   return lower == L"loot" || lower == L"search" || lower == L"rummage" ||
-         lower == L"loot body" || lower == L"search body";
+         lower == L"skin" || lower == L"skinning" || lower == L"loot body" ||
+         lower == L"search body";
+}
+
+bool IsGroundPromptActionText(const std::wstring& raw) {
+  const std::wstring text = TrimWideCopy(raw);
+  if (text.empty()) return false;
+  if (text == L"\x62FF\x53D6" || text == L"\x62FE\x53D6") {
+    return true;
+  }
+
+  std::wstring lower = text;
+  std::transform(lower.begin(), lower.end(), lower.begin(),
+                 [](wchar_t ch) { return static_cast<wchar_t>(towlower(ch)); });
+  return lower == L"take" || lower == L"pick up" || lower == L"pickup";
 }
 
 void StoreCorpsePromptAction(uintptr_t text_ptr, uintptr_t entry,
@@ -1237,10 +1390,25 @@ void StoreCorpsePromptAction(uintptr_t text_ptr, uintptr_t entry,
   InterlockedExchange(&g_recent_corpse_prompt_action, 1);
   InterlockedExchange64(&g_recent_corpse_prompt_tick,
                         static_cast<LONG64>(GetTickCount64()));
+  InterlockedExchange(&g_recent_ground_prompt_action, 0);
+  InterlockedExchange64(&g_recent_ground_prompt_tick, 0);
   InterlockedExchange64(&g_last_corpse_prompt_entry,
                         static_cast<LONG64>(entry ? entry : text_ptr));
   InterlockedExchange64(&g_last_corpse_prompt_owner, static_cast<LONG64>(owner));
   InterlockedExchange(&g_last_corpse_prompt_source, source);
+}
+
+void StoreGroundPromptAction(uintptr_t text_ptr, uintptr_t entry,
+                             uintptr_t owner, uint8_t source) {
+  (void)text_ptr;
+  (void)entry;
+  (void)owner;
+  (void)source;
+  InterlockedExchange(&g_recent_ground_prompt_action, 1);
+  InterlockedExchange64(&g_recent_ground_prompt_tick,
+                        static_cast<LONG64>(GetTickCount64()));
+  InterlockedExchange(&g_recent_corpse_prompt_action, 0);
+  InterlockedExchange64(&g_recent_corpse_prompt_tick, 0);
 }
 
 void FillTextMatchResult(const ItemNameRef& ref, uint8_t source,
@@ -1285,19 +1453,52 @@ bool TryMatchGenericItemCategoryText(const std::wstring& text, uint8_t source,
                                      ItemResolveResult* result) {
   if (!result) return false;
   if (TextContainsAny(text, {L"\x677F\x91D1\x5934\x76D4", L"\x5934\x76D4",
-                            L"\x76D4\x7532", L"\x624B\x5957",
-                            L"\x978B\x5B50", L"\x62AB\x98CE",
-                            L"Plate Helm", L"Helmet", L"Helm", L"Armor",
-                            L"Gloves", L"Boots", L"Cloak"})) {
-    FillCategoryTextMatchResult(kCatArmor, source, offset, result);
+                            L"Plate Helm", L"Helmet", L"Helm"})) {
+    FillCategoryTextMatchResult(kCatHelmet, source, offset, result);
     return true;
   }
-  if (TextContainsAny(text, {L"\x76FE\x724C", L"\x957F\x67AA",
-                            L"\x77ED\x5251", L"\x53CC\x624B\x5251",
-                            L"\x5355\x624B\x5251", L"\x5F13\x7BAD",
-                            L"\x5F29", L"\x5251", L"\x67AA", L"Shield",
-                            L"Spear", L"Sword", L"Bow", L"Crossbow"})) {
-    FillCategoryTextMatchResult(kCatWeapon, source, offset, result);
+  if (TextContainsAny(text, {L"\x76D4\x7532", L"Chest Armor", L"Armor",
+                            L"Attire", L"Mail"})) {
+    FillCategoryTextMatchResult(kCatChestArmor, source, offset, result);
+    return true;
+  }
+  if (TextContainsAny(text, {L"\x624B\x5957", L"Gloves"})) {
+    FillCategoryTextMatchResult(kCatGloves, source, offset, result);
+    return true;
+  }
+  if (TextContainsAny(text, {L"\x978B\x5B50", L"Boots"})) {
+    FillCategoryTextMatchResult(kCatBoots, source, offset, result);
+    return true;
+  }
+  if (TextContainsAny(text, {L"\x62AB\x98CE", L"Cloak"})) {
+    FillCategoryTextMatchResult(kCatCloak, source, offset, result);
+    return true;
+  }
+  if (TextContainsAny(text, {L"\x5927\x578B\x76FE\x724C", L"\x5927\x76FE",
+                            L"Tower Shield", L"Large Shield"})) {
+    FillCategoryTextMatchResult(kCatTowerShield, source, offset, result);
+    return true;
+  }
+  if (TextContainsAny(text, {L"\x76FE\x724C", L"Shield"})) {
+    FillCategoryTextMatchResult(kCatShield, source, offset, result);
+    return true;
+  }
+  if (TextContainsAny(text, {L"\x5F13\x7BAD", L"\x5F29", L"Bow",
+                            L"Crossbow"})) {
+    FillCategoryTextMatchResult(kCatBow, source, offset, result);
+    return true;
+  }
+  if (TextContainsAny(text, {L"\x957F\x67AA", L"\x53CC\x624B\x5251",
+                            L"Spear", L"Longsword", L"Greatsword",
+                            L"Hammer", L"Greataxe", L"Halberd", L"Cannon"})) {
+    FillCategoryTextMatchResult(kCatTwoHandWeapon, source, offset, result);
+    return true;
+  }
+  if (TextContainsAny(text, {L"\x77ED\x5251", L"\x5355\x624B\x5251",
+                            L"\x5251", L"\x67AA", L"Sword", L"Dagger",
+                            L"Axe", L"Mace", L"Rapier", L"Pistol",
+                            L"Musket", L"Shotgun"})) {
+    FillCategoryTextMatchResult(kCatOneHandWeapon, source, offset, result);
     return true;
   }
   return false;
@@ -1533,14 +1734,18 @@ void StorePromptItem(const ItemResolveResult& item, uintptr_t a, uintptr_t b,
   QueueGroundFromPromptItem(item);
 }
 
-bool ResolveGroundItemFromPrompt(ItemResolveResult* result) {
+bool ResolveGroundItemFromPrompt(ItemResolveResult* result,
+                                 ULONGLONG max_age_ms = 3000) {
   if (!result) return false;
   const ULONGLONG now = GetTickCount64();
   PromptItemState snapshot{};
   AcquireSRWLockShared(&g_prompt_item_lock);
   snapshot = g_prompt_item;
   ReleaseSRWLockShared(&g_prompt_item_lock);
-  if (snapshot.key == 0 || now - snapshot.tick > 3000) return false;
+  if (snapshot.key == 0 || now < snapshot.tick ||
+      now - snapshot.tick > max_age_ms) {
+    return false;
+  }
   result->resolved = true;
   result->ambiguous = false;
   result->text_match = true;
@@ -1694,6 +1899,8 @@ void StorePromptTextItem(uintptr_t text_ptr, uintptr_t entry, uintptr_t panel,
   if (ReadPromptTextPointer(text_ptr, &text)) {
     if (IsCorpsePromptActionText(text)) {
       StoreCorpsePromptAction(text_ptr, entry, owner, source);
+    } else if (IsGroundPromptActionText(text)) {
+      StoreGroundPromptAction(text_ptr, entry, owner, source);
     }
 
     ItemResolveResult direct_item{};
@@ -1794,6 +2001,11 @@ int ItemCandidateScore(uint32_t key, uint8_t category, uint32_t offset,
   if (key >= 100000) score += 10;
   if (category != kCatCurrency) score += 8;
   if (category == kCatQuest || category == kCatMaterial ||
+      category == kCatOneHandWeapon || category == kCatTwoHandWeapon ||
+      category == kCatBow || category == kCatShield ||
+      category == kCatTowerShield || category == kCatHelmet ||
+      category == kCatChestArmor || category == kCatGloves ||
+      category == kCatBoots || category == kCatCloak ||
       category == kCatWeapon || category == kCatArmor) {
     score += 4;
   }
@@ -1964,10 +2176,28 @@ bool ShouldTryGroundTextRefine(const ItemResolveResult& item) {
 
 bool IsEquipmentLikeCategory(uint8_t category) {
   switch (category) {
+    case kCatOneHandWeapon:
+    case kCatTwoHandWeapon:
+    case kCatBow:
+    case kCatShield:
+    case kCatTowerShield:
+    case kCatHelmet:
+    case kCatChestArmor:
+    case kCatGloves:
+    case kCatBoots:
+    case kCatCloak:
+    case kCatRing:
+    case kCatNecklace:
+    case kCatEarring:
+    case kCatBracelet:
+    case kCatHeadAccessory:
+    case kCatFaceAccessory:
     case kCatWeapon:
     case kCatArmor:
     case kCatAccessory:
     case kCatTool:
+    case kCatBackpack:
+    case kCatAbyssGear:
     case kCatEquipment:
       return true;
     default:
@@ -2032,9 +2262,11 @@ ItemResolveResult ResolveGroundItemCached(uint32_t type, uintptr_t target,
                                           uintptr_t candidate,
                                           uintptr_t context) {
   ItemResolveResult result{};
+  const ULONGLONG prompt_max_age_ms =
+      IsPromptGatedGroundType(type) ? kPromptActionMatchTtlMs : 3000;
   if (LookupGroundResolveCache(type, target, candidate, &result)) {
     ItemResolveResult prompt{};
-    if (ResolveGroundItemFromPrompt(&prompt)) {
+    if (ResolveGroundItemFromPrompt(&prompt, prompt_max_age_ms)) {
       StoreGroundResolveCache(type, target, candidate, prompt);
       return prompt;
     }
@@ -2042,7 +2274,7 @@ ItemResolveResult ResolveGroundItemCached(uint32_t type, uintptr_t target,
     // stored. Retrying every prompt callback causes small frame hitches.
     return result;
   }
-  if (ResolveGroundItemFromPrompt(&result)) {
+  if (ResolveGroundItemFromPrompt(&result, prompt_max_age_ms)) {
     StoreGroundResolveCache(type, target, candidate, result);
     return result;
   }
@@ -2130,6 +2362,8 @@ void ResetLootRuntimeState(const char* reason) {
   InterlockedExchange(&g_pending_corpse, 0);
   InterlockedExchange64(&g_pending_ground_tick, 0);
   InterlockedExchange64(&g_pending_corpse_tick, 0);
+  InterlockedExchange(&g_recent_ground_prompt_action, 0);
+  InterlockedExchange64(&g_recent_ground_prompt_tick, 0);
   InterlockedExchange(&g_recent_corpse_prompt_action, 0);
   InterlockedExchange64(&g_recent_corpse_prompt_tick, 0);
   InterlockedExchange(&g_last_prompt_item_key, 0);
@@ -2191,10 +2425,12 @@ RecordInteraction(uint32_t type, uintptr_t target, uintptr_t candidate,
                   uintptr_t context) {
   const ULONGLONG now = GetTickCount64();
   const bool corpse_interaction = IsCorpseInteraction(type, now);
+  const bool ground_interaction =
+      !corpse_interaction && IsGroundInteraction(type, now);
   InterlockedExchange(&g_last_interaction_type, static_cast<LONG>(type));
   InterlockedExchange64(&g_last_interaction_context,
                         static_cast<LONG64>(context));
-  if (IsGroundLootType(type)) {
+  if (ground_interaction) {
     InterlockedExchange64(&g_last_ground_target, static_cast<LONG64>(target));
     InterlockedExchange64(&g_last_ground_candidate,
                           static_cast<LONG64>(candidate));
@@ -2220,12 +2456,15 @@ RecordInteraction(uint32_t type, uintptr_t target, uintptr_t candidate,
     ResetLootRuntimeState("interaction idle or save reload");
   }
 
-  if (IsGroundLootType(type) &&
+  if (ground_interaction &&
       InterlockedCompareExchange(&g_ground_enabled, 0, 0) != 0) {
     const bool filter_active =
         InterlockedCompareExchange(&g_item_filter_enabled, 0, 0) != 0;
     if (filter_active) {
       QueueGroundResolveRequest(type, target, candidate, context, now);
+      return;
+    }
+    if (IsPromptGatedGroundType(type) && !HasRecentGroundPromptAction(now)) {
       return;
     }
 
@@ -2850,7 +3089,8 @@ void LogChangedCounters(std::array<LONG64, 1024>& last_seen,
       continue;
     }
 
-    if (IsGroundLootType(static_cast<uint32_t>(i))) {
+    if (IsGroundLootType(static_cast<uint32_t>(i)) ||
+        IsPromptGatedGroundType(static_cast<uint32_t>(i))) {
       const LONG category =
           InterlockedCompareExchange(&g_last_ground_item_category, 0, 0);
       Log("type %zu ground seen=%lld trigger=%lld filtered=%lld context=%p item=%ld category=%s allowed=%ld blocked=%ld text=%ld ambiguous=%ld unique=%ld confirmed=%ld source=%ld offset=0x%lX target=%p candidate=%p",
@@ -2991,6 +3231,10 @@ void ProcessGroundResolveRequest() {
   if (request.tick == 0 || now - request.tick > max_age) return;
 
   if (InterlockedCompareExchange(&g_item_filter_enabled, 0, 0) == 0) {
+    if (IsPromptGatedGroundType(request.type) &&
+        !HasRecentGroundPromptAction(now)) {
+      return;
+    }
     InterlockedExchange(&g_pending_ground, 1);
     InterlockedExchange64(&g_pending_ground_tick, static_cast<LONG64>(now));
     if (request.type < g_triggered.size()) {
@@ -3006,6 +3250,10 @@ void ProcessGroundResolveRequest() {
   const uint8_t category = known_item ? item.category : kCatUnknown;
   const bool blocked = known_item && IsItemBlocked(item.key);
   bool allowed = IsItemCategoryAllowed(category) && !blocked;
+  if (IsPromptGatedGroundType(request.type) &&
+      !IsPromptGatedGroundCategoryAllowed(category)) {
+    allowed = false;
+  }
   const bool confirmed = true;
   if (item.resolved && !item.text_match) allowed = false;
 

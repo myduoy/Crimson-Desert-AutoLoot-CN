@@ -30,6 +30,14 @@ ASI loader download:
 https://github.com/ThirteenAG/Ultimate-ASI-Loader/releases/tag/v9.7.1
 ```
 
+## v0.1.14 Fixes
+
+- Fixed current-client `type 2` ground equipment prompts so filtered ground loot can pick up visible gloves, armor, helmets, shields, and weapons without enabling broad scene interactions.
+- Kept `type 2` scene props guarded by text and category checks so chairs, cooking pots, wall notes, and other non-loot interactions are not auto-triggered.
+- Reclassified high-ID equipment rows whose database `slotType` is missing by using internal item-name fallbacks for helmets, chest armor, gloves, boots, cloaks, shields, bows, and weapons.
+- Added regression coverage for prompt-gated ground filtering and equipment category fallback.
+- Updated release binaries and package.
+
 ## v0.1.13 Fixes
 
 - Updated the supported build timestamp for the May 22, 2026 Crimson Desert game update.

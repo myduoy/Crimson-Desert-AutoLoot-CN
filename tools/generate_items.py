@@ -9,25 +9,55 @@ from datetime import datetime
 from pathlib import Path
 
 
-WEAPON_SLOTS = {
-    0, 1, 2, 3, 14, 15, 16, 17, 18, 19, 20, 21, 23, 24, 28, 29, 30, 31,
-    32, 33, 34, 35, 36, 37, 38, 39, 43, 47, 48, 49, 50, 51, 52,
+ROOT = Path(__file__).resolve().parents[1]
+
+ONE_HAND_WEAPON_SLOTS = {
+    0, 14, 16, 19, 29, 30, 31, 34, 35, 36, 37, 39, 43, 47, 48, 49, 50, 51,
+    52,
 }
-ARMOR_SLOTS = {4, 5, 6, 7, 11, 69}
-ACCESSORY_SLOTS = {8, 9, 10, 70, 71, 72}
-TOOL_SLOTS = {55, 84, 85, 86, 87, 88, 89, 90, 91, 92, 94, 95, 96, 97, 99, 101}
+TWO_HAND_WEAPON_SLOTS = {15, 17, 18, 20, 21, 23, 28, 33, 38}
+BOW_SLOTS = {3}
+SHIELD_SLOTS = {1, 2}
+TOWER_SHIELD_SLOTS = {32}
+ARMOR_SLOT_CATEGORIES = {
+    4: "Helmet",
+    5: "ChestArmor",
+    6: "Gloves",
+    7: "Boots",
+    11: "Helmet",
+    69: "Cloak",
+}
+ACCESSORY_SLOT_CATEGORIES = {
+    8: "Earring",
+    9: "Necklace",
+    10: "Ring",
+    70: "Bracelet",
+    71: "HeadAccessory",
+    72: "FaceAccessory",
+}
+TOOL_SLOTS = {24, 55, 84, 85, 86, 87, 88, 89, 90, 91, 92, 94, 95, 96, 97, 99, 101}
 HORSE_GEAR_SLOTS = {60, 61, 62, 63, 64}
 PET_GEAR_SLOTS = {58, 59}
 VEHICLE_GEAR_SLOTS = {73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83}
-EQUIPMENT_SLOTS = {13, 66}
+BACKPACK_SLOTS = {13, 66}
 
 
 def support_dir() -> Path:
-    return Path(__file__).resolve().parent
+    return ROOT
+
+
+def save_editor_candidates() -> list[Path]:
+    return [
+        ROOT.parent / "Save Editor",
+        Path(r"D:\soft\Steam\steamapps\common\Crimson Desert\Save Editor"),
+    ]
 
 
 def save_editor_dir() -> Path:
-    return support_dir().parent.parent / "Save Editor"
+    for candidate in save_editor_candidates():
+        if (candidate / "crimson_data.db").exists():
+            return candidate
+    return save_editor_candidates()[0]
 
 
 def system_language_code() -> str:
@@ -117,6 +147,18 @@ def classify_item(row: sqlite3.Row) -> str:
     if lower_internal.startswith("trade_") or lower_name.startswith("packaged "):
         return "Trade"
 
+    if (
+        lower_internal.startswith(("item_skill_abyssgear", "item_stat_abyssgear"))
+        or lower_internal.startswith("abyss_infinitestat")
+        or lower_internal in {
+            "abyss_artifact",
+            "first_artifact",
+            "deactived_abyss_artifact",
+        }
+        or lower_internal.startswith("sealed_abyss_artifact")
+    ):
+        return "AbyssGear"
+
     if slot_type in HORSE_GEAR_SLOTS or "horsearmor" in lower_internal or "horseshoe" in lower_internal:
         return "HorseGear"
 
@@ -126,33 +168,76 @@ def classify_item(row: sqlite3.Row) -> str:
     if slot_type in VEHICLE_GEAR_SLOTS or "warrobot" in lower_internal:
         return "VehicleGear"
 
-    armor_keywords = (
-        "platearmor",
-        "leather_armor",
-        "fabric_armor",
-        "chainmail",
-        "_helm",
-        "_gloves",
-        "_boots",
-        "_cloak",
-    )
-    if any(keyword in lower_internal for keyword in armor_keywords):
-        return "Armor"
+    if slot_type in BACKPACK_SLOTS or "backpack" in lower_internal:
+        return "Backpack"
 
-    if slot_type in WEAPON_SLOTS:
-        return "Weapon"
+    if slot_type in ARMOR_SLOT_CATEGORIES:
+        return ARMOR_SLOT_CATEGORIES[slot_type]
 
-    if slot_type in ARMOR_SLOTS:
-        return "Armor"
+    if slot_type in ACCESSORY_SLOT_CATEGORIES:
+        return ACCESSORY_SLOT_CATEGORIES[slot_type]
 
-    if slot_type in ACCESSORY_SLOTS:
-        return "Accessory"
+    if slot_type in SHIELD_SLOTS:
+        return "Shield"
+
+    if slot_type in TOWER_SHIELD_SLOTS:
+        return "TowerShield"
+
+    if slot_type in BOW_SLOTS:
+        return "Bow"
+
+    if slot_type in TWO_HAND_WEAPON_SLOTS:
+        return "TwoHandWeapon"
+
+    if slot_type in ONE_HAND_WEAPON_SLOTS:
+        return "OneHandWeapon"
 
     if slot_type in TOOL_SLOTS:
         return "Tool"
 
-    if slot_type in EQUIPMENT_SLOTS:
-        return "Equipment"
+    # Some May 2026 database rows lost their equipment slotType and only keep
+    # the real equipment kind in the internal name.
+    if (
+        "tower_shield" in lower_internal
+        or re.search(r"(^|_)large_?shield($|_)", lower_internal)
+    ):
+        return "TowerShield"
+
+    if re.search(r"(^|_)(shield|roundshield|kiteshield)($|_)", lower_internal):
+        return "Shield"
+
+    if re.search(r"(^|_)(bow|crossbow)($|_)", lower_internal):
+        return "Bow"
+
+    if (
+        "twohandsword" in lower_internal
+        or "twohandaxe" in lower_internal
+        or "twohandhammer" in lower_internal
+        or "twohandmace" in lower_internal
+        or re.search(r"(^|_)(spear|halberd|moon_blade)($|_)", lower_internal)
+    ):
+        return "TwoHandWeapon"
+
+    if (
+        "onehand" in lower_internal
+        or re.search(r"(^|_)(rapier|dagger|sword|mace|axe|pistol|musket|shotgun)($|_)", lower_internal)
+    ):
+        return "OneHandWeapon"
+
+    if re.search(r"(^|_)(helm|helmet|hat)($|_)", lower_internal):
+        return "Helmet"
+
+    if re.search(r"(^|_)(glove|gloves|gauntlet|gauntlets)($|_)", lower_internal):
+        return "Gloves"
+
+    if re.search(r"(^|_)(boot|boots|shoe|shoes|greaves)($|_)", lower_internal):
+        return "Boots"
+
+    if re.search(r"(^|_)cloak($|_)", lower_internal):
+        return "Cloak"
+
+    if "platearmor" in lower_internal or "chainmail" in lower_internal:
+        return "ChestArmor"
 
     if (
         "cannonball" in lower_internal
@@ -224,7 +309,7 @@ def classify_item(row: sqlite3.Row) -> str:
         return "Material"
 
     if db_category == "Equipment":
-        return "Equipment"
+        return "Misc"
 
     if db_category == "Ammo":
         return "Ammo"
