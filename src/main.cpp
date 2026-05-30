@@ -23,20 +23,20 @@
 
 namespace {
 
-constexpr uint32_t kSupportedBuildTimestamp = 0x6A0FCCDE;
-constexpr uintptr_t kTypeResolverThunkRva = 0x002FB830;
-constexpr uintptr_t kTypeResolverTargetRva = 0x07B028F0;
-constexpr uintptr_t kPromptUpdateEntryRva = 0x00BA2970;
-constexpr uintptr_t kPromptTextAEntryRva = 0x00BA3077;
-constexpr uintptr_t kPromptTextBEntryRva = 0x00BA30AF;
-constexpr uintptr_t kPromptBranchRva = 0x00BA31EF;
-constexpr uintptr_t kOriginalContinueRva = 0x00BA3207;
-constexpr uintptr_t kSkipPromptRva = 0x00BA32FE;
-constexpr uintptr_t kPromptTextAReturnRva = 0x00BA309D;
-constexpr uintptr_t kPromptTextBReturnRva = 0x00BA30C1;
-constexpr uintptr_t kPromptTextALiteralRva = 0x04A99868;
-constexpr uintptr_t kPromptTextACallRva = 0x00A96CB0;
-constexpr uintptr_t kPromptTextBCallRva = 0x00A966F0;
+constexpr uint32_t kSupportedBuildTimestamp = 0x6A18647C;
+constexpr uintptr_t kTypeResolverThunkRva = 0x002FBBC0;
+constexpr uintptr_t kTypeResolverTargetRva = 0x07B62DA0;
+constexpr uintptr_t kPromptUpdateEntryRva = 0x00BA4C90;
+constexpr uintptr_t kPromptTextAEntryRva = 0x00BA5387;
+constexpr uintptr_t kPromptTextBEntryRva = 0x00BA53BF;
+constexpr uintptr_t kPromptBranchRva = 0x00BA43D8;
+constexpr uintptr_t kOriginalContinueRva = 0x00BA43F0;
+constexpr uintptr_t kSkipPromptRva = 0x00BA44DE;
+constexpr uintptr_t kPromptTextAReturnRva = 0x00BA53AD;
+constexpr uintptr_t kPromptTextBReturnRva = 0x00BA53D1;
+constexpr uintptr_t kPromptTextALiteralRva = 0x04AA3948;
+constexpr uintptr_t kPromptTextACallRva = 0x00A98FF0;
+constexpr uintptr_t kPromptTextBCallRva = 0x00A98A40;
 constexpr size_t kPatchLen = 24;
 constexpr size_t kTypeResolverPatchLen = 5;
 constexpr size_t kPromptUpdatePatchLen = 15;
@@ -2642,7 +2642,7 @@ std::vector<uint8_t> BuildPromptBranchStub(uintptr_t stub_base) {
 
   if (InterlockedCompareExchange(&g_record_prompt_branch, 0, 0) != 0) {
     EmitSaveVolatile(code);
-    EmitBytes(code, {0x44, 0x89, 0xF1});  // mov ecx,r14d
+    EmitBytes(code, {0x40, 0x0F, 0xB6, 0xCD});  // movzx ecx,bpl
     EmitBytes(code, {0x48, 0x89, 0xFA, 0x4D, 0x89, 0xE8,
                      0x4D, 0x89, 0xF9});  // rdx=rdi r8=r13 r9=r15
     EmitMovRaxImm64(code, reinterpret_cast<uint64_t>(&RecordInteraction));
@@ -2654,12 +2654,12 @@ std::vector<uint8_t> BuildPromptBranchStub(uintptr_t stub_base) {
 
   // Reproduce the exact overwritten game branch. Do not force type 168 into
   // the old autoloot continuation; that route caused the repeated crashes.
-  EmitBytes(code, {0x41, 0x80, 0xFE, 0x02});  // cmp r14b,2
+  EmitBytes(code, {0x40, 0x80, 0xFD, 0x02});  // cmp bpl,2
   const size_t jne_not_type2 = EmitJccRel32Placeholder(code, 0x85);
   EmitRelJumpToAddress(code, stub_base, g_game + kSkipPromptRva);
 
   const size_t not_type2 = code.size();
-  EmitBytes(code, {0x41, 0x80, 0xBF, 0x8E, 0x01, 0x00, 0x00, 0x00});
+  EmitBytes(code, {0x41, 0x80, 0xBE, 0x8E, 0x01, 0x00, 0x00, 0x00});
   const size_t jne_skip = EmitJccRel32Placeholder(code, 0x85);
   EmitRelJumpToAddress(code, stub_base, g_game + kOriginalContinueRva);
 
@@ -2820,10 +2820,10 @@ bool InstallPromptTextHooks() {
   uint8_t* target_a = reinterpret_cast<uint8_t*>(g_game + kPromptTextAEntryRva);
   const uint8_t expected_a[] = {
       0x41, 0x0F, 0xB6, 0x4D, 0x3A, 0x49, 0x8B, 0x45,
-      0x30, 0x4D, 0x8D, 0x87, 0x80, 0x01, 0x00, 0x00,
-      0x88, 0x4C, 0x24, 0x20, 0x4C, 0x8D, 0x0D, 0xD6,
-      0x67, 0xEF, 0x03, 0x48, 0x8B, 0x10, 0x48, 0x8B,
-      0xCF, 0xE8, 0x13, 0x3C, 0xEF, 0xFF};
+      0x30, 0x4C, 0x8D, 0x86, 0x80, 0x01, 0x00, 0x00,
+      0x88, 0x4C, 0x24, 0x20, 0x4C, 0x8D, 0x0D, 0xA6,
+      0xE5, 0xEF, 0x03, 0x48, 0x8B, 0x10, 0x48, 0x8B,
+      0xCF, 0xE8, 0x43, 0x3C, 0xEF, 0xFF};
   void* stub_a = nullptr;
   const bool ok_a = InstallAbsJumpHook(
       target_a, expected_a, sizeof(expected_a), BuildPromptTextAStub(),
@@ -2832,7 +2832,7 @@ bool InstallPromptTextHooks() {
   uint8_t* target_b = reinterpret_cast<uint8_t*>(g_game + kPromptTextBEntryRva);
   const uint8_t expected_b[] = {0x49, 0x8B, 0x45, 0x40, 0x41, 0xB0,
                                 0x01, 0x48, 0x8B, 0x10, 0x48, 0x8B,
-                                0xCF, 0xE8, 0x2F, 0x36, 0xEF, 0xFF};
+                                0xCF, 0xE8, 0x6F, 0x36, 0xEF, 0xFF};
   void* stub_b = nullptr;
   const bool ok_b = InstallAbsJumpHook(
       target_b, expected_b, sizeof(expected_b), BuildPromptTextBStub(),
@@ -2889,7 +2889,7 @@ bool InstallPromptUpdateHook() {
 
 bool InstallPromptResolverHook() {
   uint8_t* target = reinterpret_cast<uint8_t*>(g_game + kTypeResolverThunkRva);
-  const uint8_t expected[] = {0xE9, 0xBB, 0x70, 0x80, 0x07};
+  const uint8_t expected[] = {0xE9, 0xDB, 0x71, 0x86, 0x07};
   if (std::memcmp(target, expected, sizeof(expected)) != 0) {
     Log("prompt resolver hook mismatch: target=%p first=%02X %02X %02X %02X",
         target, target[0], target[1], target[2], target[3]);
@@ -2945,9 +2945,9 @@ bool InstallPromptResolverHook() {
 bool InstallPromptBranchHook() {
   uint8_t* target = reinterpret_cast<uint8_t*>(g_game + kPromptBranchRva);
   const uint8_t expected[] = {
-      0x41, 0x80, 0xFE, 0x02, 0x0F, 0x84, 0x05, 0x01,
-      0x00, 0x00, 0x41, 0x80, 0xBF, 0x8E, 0x01, 0x00,
-      0x00, 0x00, 0x0F, 0x85, 0xF7, 0x00, 0x00, 0x00};
+      0x40, 0x80, 0xFD, 0x02, 0x0F, 0x84, 0xFC, 0x00,
+      0x00, 0x00, 0x41, 0x80, 0xBE, 0x8E, 0x01, 0x00,
+      0x00, 0x00, 0x0F, 0x85, 0xEE, 0x00, 0x00, 0x00};
   if (std::memcmp(target, expected, sizeof(expected)) != 0) {
     Log("hook point mismatch: target=%p first=%02X %02X %02X %02X",
         target, target[0], target[1], target[2], target[3]);

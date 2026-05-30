@@ -30,6 +30,14 @@ ASI loader download:
 https://github.com/ThirteenAG/Ultimate-ASI-Loader/releases/tag/v9.7.1
 ```
 
+## v0.1.15 Fixes
+
+- Updated the supported build timestamp for the May 30, 2026 Crimson Desert game update.
+- Updated prompt update, prompt text A/B, prompt branch, skip target, literal target, and call target constants for the current installed game executable.
+- Updated the prompt branch hook stub for the current `bpl` interaction-type register allocation.
+- Expanded hook regression coverage so future game updates can detect the relaxed prompt text signature, backward branch search, and resolver-call layout.
+- Updated release binaries and package.
+
 ## v0.1.14 Fixes
 
 - Fixed current-client `type 2` ground equipment prompts so filtered ground loot can pick up visible gloves, armor, helmets, shields, and weapons without enabling broad scene interactions.

@@ -97,10 +97,9 @@ def rva_to_raw(data: bytes, rva: int) -> int:
 
 
 def find_text_a(data: bytes) -> int:
-    prefix = bytes.fromhex(
-        "41 0F B6 4D 3A 49 8B 45 30 4D 8D"
-    )
-    r8_owner_modrms = {0x86, 0x87}
+    prefix = bytes.fromhex("41 0F B6 4D 3A 49 8B 45 30")
+    lea_opcodes = (bytes.fromhex("4D 8D"), bytes.fromhex("4C 8D"))
+    owner_modrms = {0x86, 0x87}
     lea_disp = bytes.fromhex("80 01 00 00")
     store_and_literal = bytes.fromhex("88 4C 24 20 4C 8D 0D")
     suffix = bytes.fromhex("48 8B 10 48 8B CF E8")
@@ -111,7 +110,8 @@ def find_text_a(data: bytes) -> int:
         if index < 0:
             break
         if (
-            data[index + 11] in r8_owner_modrms
+            data[index + 9:index + 11] in lea_opcodes
+            and data[index + 11] in owner_modrms
             and data[index + 12:index + 16] == lea_disp
             and data[index + 16:index + 23] == store_and_literal
             and data[index + 27:index + 34] == suffix
@@ -154,6 +154,7 @@ def find_prompt_update(data: bytes, text_a_raw: int) -> int:
 def find_prompt_branch(data: bytes, text_a_raw: int) -> int:
     first_compares = (
         bytes.fromhex("40 80 FE 02 0F 84"),
+        bytes.fromhex("40 80 FD 02 0F 84"),
         bytes.fromhex("41 80 FE 02 0F 84"),
     )
     second_compares = (
@@ -161,10 +162,12 @@ def find_prompt_branch(data: bytes, text_a_raw: int) -> int:
         bytes.fromhex("41 80 BF 8E 01 00 00 00 0F 85"),
     )
     hits = []
+    search_start = max(0, text_a_raw - 0x2000)
+    search_end = text_a_raw + 0x400
     for first_compare in first_compares:
-        start = text_a_raw
+        start = search_start
         while True:
-            index = data.find(first_compare, start, text_a_raw + 0x400)
+            index = data.find(first_compare, start, search_end)
             if index < 0:
                 break
             if data[index + 10:index + 20] in second_compares:
@@ -181,6 +184,8 @@ def assert_branch_stub_type_capture_matches_game(data: bytes, branch_raw: int) -
         assert "0x41, 0x0F, 0xB7, 0x4D, 0x10" not in body, "current branch stub must not read type from [r13+10h]"
     elif data[branch_raw:branch_raw + 4] == bytes.fromhex("40 80 FE 02"):
         assert "0x40, 0x0F, 0xB6, 0xCE" in body, "sil branch type must be copied into ecx"
+    elif data[branch_raw:branch_raw + 4] == bytes.fromhex("40 80 FD 02"):
+        assert "0x40, 0x0F, 0xB6, 0xCD" in body, "bpl branch type must be copied into ecx"
     else:
         raise AssertionError(f"unrecognized prompt branch type compare at 0x{branch_raw:X}")
 
@@ -205,6 +210,7 @@ def assert_worker_uses_resolver_hook_not_branch_patch() -> None:
 def branch_instruction_block_length(data: bytes, branch_raw: int) -> int:
     assert data[branch_raw:branch_raw + 4] in (
         bytes.fromhex("40 80 FE 02"),
+        bytes.fromhex("40 80 FD 02"),
         bytes.fromhex("41 80 FE 02"),
     )
     assert data[branch_raw + 4:branch_raw + 6] == bytes.fromhex("0F 84")
@@ -232,9 +238,14 @@ def test_source_hook_constants_match_installed_game() -> None:
     text_a = raw_to_rva(data, text_a_raw)
     text_b = raw_to_rva(data, text_b_raw)
     branch = raw_to_rva(data, branch_raw)
-    resolver_call_raw = branch_raw - 10
-    assert data[resolver_call_raw] == 0xE8
-    resolver = branch - 10 + 5 + rel32(data, resolver_call_raw + 1)
+    resolver_call_raws = [
+        offset
+        for offset in range(max(0, branch_raw - 24), branch_raw)
+        if data[offset] == 0xE8
+    ]
+    assert resolver_call_raws, "expected resolver call before prompt branch"
+    resolver_call_raw = resolver_call_raws[-1]
+    resolver = raw_to_rva(data, resolver_call_raw) + 5 + rel32(data, resolver_call_raw + 1)
     resolver_raw = rva_to_raw(data, resolver)
     assert data[resolver_raw] == 0xE9
     resolver_target = resolver + 5 + rel32(data, resolver_raw + 1)

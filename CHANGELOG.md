@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.1.15
+
+- Updated the supported Crimson Desert build timestamp for the May 30, 2026 game update.
+- Updated prompt update, prompt text A/B, prompt branch, skip target, literal target, and call target constants for the current installed game executable.
+- Updated the prompt branch hook stub for the current `bpl` interaction-type register allocation.
+- Expanded hook regression coverage for the relaxed prompt text signature, backward prompt branch search, and resolver-call layout.
+- Updated release binaries and package.
+
+## v0.1.14
+
+- Fixed current-client `type 2` ground equipment prompts so filtered ground loot can pick up visible gloves, armor, helmets, shields, and weapons without enabling broad scene interactions.
+- Kept `type 2` scene props guarded by text and category checks so chairs, cooking pots, wall notes, and other non-loot interactions are not auto-triggered.
+- Reclassified high-ID equipment rows whose database `slotType` is missing by using internal item-name fallbacks for helmets, chest armor, gloves, boots, cloaks, shields, bows, and weapons.
+- Added regression coverage for prompt-gated ground filtering and equipment category fallback.
+- Updated release binaries and package.
+
 ## v0.1.13
 
 - Updated the supported Crimson Desert build timestamp for the May 22, 2026 game update.
