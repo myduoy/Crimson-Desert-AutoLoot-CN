@@ -23,20 +23,20 @@
 
 namespace {
 
-constexpr uint32_t kSupportedBuildTimestamp = 0x6A18647C;
-constexpr uintptr_t kTypeResolverThunkRva = 0x002FBBC0;
-constexpr uintptr_t kTypeResolverTargetRva = 0x07B62DA0;
-constexpr uintptr_t kPromptUpdateEntryRva = 0x00BA4C90;
-constexpr uintptr_t kPromptTextAEntryRva = 0x00BA5387;
-constexpr uintptr_t kPromptTextBEntryRva = 0x00BA53BF;
-constexpr uintptr_t kPromptBranchRva = 0x00BA43D8;
-constexpr uintptr_t kOriginalContinueRva = 0x00BA43F0;
-constexpr uintptr_t kSkipPromptRva = 0x00BA44DE;
-constexpr uintptr_t kPromptTextAReturnRva = 0x00BA53AD;
-constexpr uintptr_t kPromptTextBReturnRva = 0x00BA53D1;
-constexpr uintptr_t kPromptTextALiteralRva = 0x04AA3948;
-constexpr uintptr_t kPromptTextACallRva = 0x00A98FF0;
-constexpr uintptr_t kPromptTextBCallRva = 0x00A98A40;
+constexpr uint32_t kSupportedBuildTimestamp = 0x6A21A6E2;
+constexpr uintptr_t kTypeResolverThunkRva = 0x00300D90;
+constexpr uintptr_t kTypeResolverTargetRva = 0x07D17240;
+constexpr uintptr_t kPromptUpdateEntryRva = 0x00BBD950;
+constexpr uintptr_t kPromptTextAEntryRva = 0x00BBE047;
+constexpr uintptr_t kPromptTextBEntryRva = 0x00BBE07F;
+constexpr uintptr_t kPromptBranchRva = 0x00BBD098;
+constexpr uintptr_t kOriginalContinueRva = 0x00BBD0B0;
+constexpr uintptr_t kSkipPromptRva = 0x00BBD19E;
+constexpr uintptr_t kPromptTextAReturnRva = 0x00BBE06D;
+constexpr uintptr_t kPromptTextBReturnRva = 0x00BBE091;
+constexpr uintptr_t kPromptTextALiteralRva = 0x04B49C98;
+constexpr uintptr_t kPromptTextACallRva = 0x00AAE940;
+constexpr uintptr_t kPromptTextBCallRva = 0x00AAE390;
 constexpr size_t kPatchLen = 24;
 constexpr size_t kTypeResolverPatchLen = 5;
 constexpr size_t kPromptUpdatePatchLen = 15;
@@ -2821,9 +2821,9 @@ bool InstallPromptTextHooks() {
   const uint8_t expected_a[] = {
       0x41, 0x0F, 0xB6, 0x4D, 0x3A, 0x49, 0x8B, 0x45,
       0x30, 0x4C, 0x8D, 0x86, 0x80, 0x01, 0x00, 0x00,
-      0x88, 0x4C, 0x24, 0x20, 0x4C, 0x8D, 0x0D, 0xA6,
-      0xE5, 0xEF, 0x03, 0x48, 0x8B, 0x10, 0x48, 0x8B,
-      0xCF, 0xE8, 0x43, 0x3C, 0xEF, 0xFF};
+      0x88, 0x4C, 0x24, 0x20, 0x4C, 0x8D, 0x0D, 0x36,
+      0xBC, 0xF8, 0x03, 0x48, 0x8B, 0x10, 0x48, 0x8B,
+      0xCF, 0xE8, 0xD3, 0x08, 0xEF, 0xFF};
   void* stub_a = nullptr;
   const bool ok_a = InstallAbsJumpHook(
       target_a, expected_a, sizeof(expected_a), BuildPromptTextAStub(),
@@ -2832,7 +2832,7 @@ bool InstallPromptTextHooks() {
   uint8_t* target_b = reinterpret_cast<uint8_t*>(g_game + kPromptTextBEntryRva);
   const uint8_t expected_b[] = {0x49, 0x8B, 0x45, 0x40, 0x41, 0xB0,
                                 0x01, 0x48, 0x8B, 0x10, 0x48, 0x8B,
-                                0xCF, 0xE8, 0x6F, 0x36, 0xEF, 0xFF};
+                                0xCF, 0xE8, 0xFF, 0x02, 0xEF, 0xFF};
   void* stub_b = nullptr;
   const bool ok_b = InstallAbsJumpHook(
       target_b, expected_b, sizeof(expected_b), BuildPromptTextBStub(),
@@ -2889,7 +2889,7 @@ bool InstallPromptUpdateHook() {
 
 bool InstallPromptResolverHook() {
   uint8_t* target = reinterpret_cast<uint8_t*>(g_game + kTypeResolverThunkRva);
-  const uint8_t expected[] = {0xE9, 0xDB, 0x71, 0x86, 0x07};
+  const uint8_t expected[] = {0xE9, 0xAB, 0x64, 0xA1, 0x07};
   if (std::memcmp(target, expected, sizeof(expected)) != 0) {
     Log("prompt resolver hook mismatch: target=%p first=%02X %02X %02X %02X",
         target, target[0], target[1], target[2], target[3]);
