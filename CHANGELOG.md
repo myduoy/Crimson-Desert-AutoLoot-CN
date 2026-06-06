@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.1.17
+
+- Updated the supported Crimson Desert build timestamp for the June 6, 2026 game update.
+- Refreshed the prompt resolver target and expected resolver bytes for the current client.
+- Kept prompt text, prompt branch, skip, literal, and call targets unchanged because they still match the current executable.
+- Updated release binaries and package.
+
 ## v0.1.16
 
 - Updated the supported Crimson Desert build timestamp for the June 5, 2026 game update.

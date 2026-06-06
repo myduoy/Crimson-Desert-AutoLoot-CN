@@ -23,9 +23,9 @@
 
 namespace {
 
-constexpr uint32_t kSupportedBuildTimestamp = 0x6A21A6E2;
+constexpr uint32_t kSupportedBuildTimestamp = 0x6A22BE53;
 constexpr uintptr_t kTypeResolverThunkRva = 0x00300D90;
-constexpr uintptr_t kTypeResolverTargetRva = 0x07D17240;
+constexpr uintptr_t kTypeResolverTargetRva = 0x07C73BF0;
 constexpr uintptr_t kPromptUpdateEntryRva = 0x00BBD950;
 constexpr uintptr_t kPromptTextAEntryRva = 0x00BBE047;
 constexpr uintptr_t kPromptTextBEntryRva = 0x00BBE07F;
@@ -2889,7 +2889,7 @@ bool InstallPromptUpdateHook() {
 
 bool InstallPromptResolverHook() {
   uint8_t* target = reinterpret_cast<uint8_t*>(g_game + kTypeResolverThunkRva);
-  const uint8_t expected[] = {0xE9, 0xAB, 0x64, 0xA1, 0x07};
+  const uint8_t expected[] = {0xE9, 0x5B, 0x2E, 0x97, 0x07};
   if (std::memcmp(target, expected, sizeof(expected)) != 0) {
     Log("prompt resolver hook mismatch: target=%p first=%02X %02X %02X %02X",
         target, target[0], target[1], target[2], target[3]);
